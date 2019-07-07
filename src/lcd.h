@@ -113,13 +113,13 @@ public:
 	void DrawStringMem(uint16_t x0, uint16_t y0, uint16_t memWidth, uint16_t* memBuffer, std::string s, const FontData *font, const uint32_t& foreground, const uint32_t& background);
 
 	void Command(const uint8_t& data);
+	void Delay(volatile uint32_t delay);
 
 private:
 
 	uint16_t charBuffer[2][16 * 26];
 	uint8_t currentCharBuffer = 0;
 
-	void Delay(volatile uint32_t delay);
 	void Data(const uint8_t& data);
 	void Data16b(const uint16_t& data);
 	void CommandData(CDARGS);

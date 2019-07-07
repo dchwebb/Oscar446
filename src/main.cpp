@@ -86,6 +86,13 @@ int main(void) {
 	InitDAC();		// FIXME For testing
 
 	lcd.Init();								// Initialize ILI9341 LCD
+
+	for (int p = 0; p < 50; ++p) {
+		lcd.DrawLine(10, 2, 10, 6, LCD_RED);
+		lcd.DrawLine(10, 4, 10, 8, LCD_BLUE);
+		lcd.Delay(100000);
+	}
+
 	InitSampleAcquisition();
 	ui.ResetMode();
 
