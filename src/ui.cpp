@@ -52,12 +52,12 @@ void UI::MenuAction(encoderType* et, volatile const int8_t& val) {
 	DrawMenu();
 }
 
-void UI::EncoderAction(encoderType type, int8_t val) {
+void UI::EncoderAction(encoderType type, const int8_t& val) {
 	int16_t adj;
 	switch (type) {
 	case HorizScaleCoarse :
 		adj = TIM3->ARR + 10 * val;
-		if (adj > 2 && adj < 6000)
+		if (adj > 10 && adj < 6000)
 			TIM3->ARR = adj;
 		DrawUI();
 		break;
@@ -79,6 +79,13 @@ void UI::EncoderAction(encoderType type, int8_t val) {
 			DrawUI();
 		}
 		break;
+	case ChannelSelect :
+		osc.OscDisplay += val;
+		osc.OscDisplay = osc.OscDisplay == 0 ? 7 : osc.OscDisplay == 8 ? 1 : osc.OscDisplay;
+		// FIXME - handle triggers
+		DrawUI();
+		break;
+
 	case TriggerChannel :
 		if ((osc.TriggerTest == nullptr && val > 0) || (osc.TriggerTest == &adcB && val < 0))
 			osc.TriggerTest = &adcA;
@@ -132,18 +139,24 @@ void UI::DrawMenu() {
 }
 
 void UI::handleEncoders() {
-	if (encoderPendingL) {
-		if (menuMode)	MenuAction(&EncoderModeL, encoderPendingL);
-		else			EncoderAction(EncoderModeL, encoderPendingL);
+	// encoders count in fours with the zero point set to 100
+	if (std::abs((int8_t)100 - L_ENC_CNT) > 3) {
+		int8_t v = L_ENC_CNT > 100 ? 1 : -1;
+		if (menuMode)
+			MenuAction(&EncoderModeL, v);
+		else
+			EncoderAction(EncoderModeL, v);
 
-		encoderPendingL = 0;
+		L_ENC_CNT -= L_ENC_CNT > 100 ? 4 : -4;
 	}
 
-	if (encoderPendingR) {
-		if (menuMode)	MenuAction(&EncoderModeR, encoderPendingR);
-		else			EncoderAction(EncoderModeR, encoderPendingR);
+	if (std::abs((int8_t)100 - R_ENC_CNT) > 3) {
+		int8_t v = R_ENC_CNT > 100 ? 1 : -1;
+		if (menuMode)	MenuAction(&EncoderModeR, v);
+		else			EncoderAction(EncoderModeR, v);
 
-		encoderPendingR = 0;
+		R_ENC_CNT -= R_ENC_CNT > 100 ? 4 : -4;
+
 	}
 
 	if ((encoderBtnL || encoderBtnR) && menuMode) {
@@ -227,10 +240,12 @@ std::string UI::EncoderLabel(encoderType type) {
 		return "Zoom Horiz";
 	case HorizScaleFine :
 		return "Zoom Horiz";
+	case ChannelSelect :
+		return "Ch:" + std::string(osc.OscDisplay & 1 ? "A" : "") + std::string(osc.OscDisplay & 2 ? "B" : "") + std::string(osc.OscDisplay & 4 ? "C  " : "  ");
 	case CalibVertScale :
 		return "Calib Scale";
 	case CalibVertOffset :
-		return "Calib Offset";
+		return "Calib Offs";
 	case VoltScale :
 		return "Zoom Vert";
 	case TriggerY :

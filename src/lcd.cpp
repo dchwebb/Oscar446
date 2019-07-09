@@ -88,10 +88,10 @@ void LCD::SetCursorPosition(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2) 
 void LCD::Rotate(LCD_Orientation_t o) {
 	Command(ILI9341_MAC);
 	switch (o) {
-		case LCD_Portrait :				Data(0x58);
-		case LCD_Portrait_Flipped : 	Data(0x88);
-		case LCD_Landscape : 			Data(0x28);
-		case LCD_Landscape_Flipped :	Data(0xE8);
+		case LCD_Portrait :				Data(0x58); break;
+		case LCD_Portrait_Flipped : 	Data(0x88); break;
+		case LCD_Landscape : 			Data(0x28); break;
+		case LCD_Landscape_Flipped :	Data(0xE8); break;
 	}
 
 	orientation = o;
@@ -112,17 +112,27 @@ void LCD::ColourFill(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, const u
 	uint32_t pixelCount = (x1 - x0 + 1) * (y1 - y0 + 1);
 
 	SetCursorPosition(x0, y0, x1, y1);
+	DMAint16 = colour;								// data to transfer - set early to avoid problem where F722 doesn't update buffer until midway through send
 	Command(ILI9341_GRAM);
+
 	LCD_DCX_SET;
 
 	SPISetDataSize(SPIDataSize_16b);				// 16-bit SPI mode
 
-	// Send first 65535 bytes, SPI must be in 16-bit Mode
-	SPI_DMA_SendHalfWord(colour, (pixelCount > 0xFFFF) ? 0xFFFF : pixelCount);
+	//	Clear DMA transfer half transfer and transfer complete interrupt flags in DMA_HISR
+	DMA1->HIFCR = DMA_HIFCR_CHTIF5 | DMA_HIFCR_CTCIF5 | DMA_HIFCR_CTEIF5;
+
+	DMA1_Stream5->CR &= ~DMA_SxCR_MINC;				// Memory not in increment mode
+	DMA1_Stream5->NDTR = (pixelCount > 0xFFFF) ? pixelCount / 2 : pixelCount;						// Number of data items to transfer
+	DMA1_Stream5->M0AR = (uint32_t) &DMAint16;		// DMA_InitStruct.DMA_Memory0BaseAddr;
+	DMA1_Stream5->CR |= DMA_SxCR_EN;				// Enable DMA transfer stream
+	SPI3->CR2 |= SPI_CR2_TXDMAEN;					// Enable SPI TX DMA
 
 	if (pixelCount > 0xFFFF) {						// Send remaining data
 		while (SPI_DMA_Working);
-		SPI_DMA_SendHalfWord(colour, pixelCount - 0xFFFF);
+		DMA1->HIFCR = DMA_HIFCR_CHTIF5 | DMA_HIFCR_CTCIF5 | DMA_HIFCR_CTEIF5;
+		DMA1_Stream5->NDTR = pixelCount / 2;		// Number of data items to transfer
+		DMA1_Stream5->CR |= DMA_SxCR_EN;			// Enable DMA transfer stream
 	}
 }
 
@@ -136,7 +146,7 @@ void LCD::PatternFill(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, const 
 	SPISetDataSize(SPIDataSize_16b);				// 16-bit SPI mode
 
 	//	Clear DMA transfer half transfer and transfer complete interrupt flags in DMA_HISR
-	DMA1->HIFCR = DMA_HIFCR_CHTIF5 | DMA_HIFCR_CTCIF5;
+	DMA1->HIFCR = DMA_HIFCR_CHTIF5 | DMA_HIFCR_CTCIF5 | DMA_HIFCR_CFEIF5;
 
 	DMA1_Stream5->CR |= DMA_SxCR_MINC;				// Memory in increment mode
 	DMA1_Stream5->NDTR = pixelCount;				// Number of data items to transfer
@@ -293,15 +303,25 @@ void LCD::DrawStringMem(uint16_t x0, uint16_t y0, uint16_t memWidth, uint16_t* m
 
 void LCD::SPISetDataSize(const SPIDataSize_t& Mode) {
 
-	SPI3->CR1 &= ~SPI_CR1_SPE;						// Disable SPI
+//	SPI3->CR1 &= ~SPI_CR1_SPE;						// Disable SPI
 
+
+#ifndef STM32F722xx
 	if (Mode == SPIDataSize_16b) {
 		SPI3->CR1 |= SPI_CR1_DFF;					// Data frame format: 0: 8-bit data frame format; 1: 16-bit data frame format
 	} else {
 		SPI3->CR1 &= ~SPI_CR1_DFF;
 	}
+#else
+	//0111: 8-bit; 1111: 16-bit
+	if (Mode == SPIDataSize_16b) {
+		SPI3->CR2 |= SPI_CR2_DS;					// Data frame format: 0: 8-bit data frame format; 1: 16-bit data frame format
+	} else {
+		SPI3->CR2 &= ~SPI_CR2_DS_3;
+	}
+#endif
 
-	SPI3->CR1 |= SPI_CR1_SPE;						// Re-enable SPI
+//	SPI3->CR1 |= SPI_CR1_SPE;						// Re-enable SPI
 }
 
 inline void LCD::SPISendByte(const uint8_t data) {
@@ -309,30 +329,22 @@ inline void LCD::SPISendByte(const uint8_t data) {
 	while (SPI_DMA_Working);
 
 	// check if in 16 bit mode. Data frame format: 0: 8-bit data frame format; 1: 16-bit data frame format
+#ifndef STM32F722xx
 	if (SPI3->CR1 & SPI_CR1_DFF)
 		SPISetDataSize(SPIDataSize_8b);
+#else
+	if (SPI3->CR2 & SPI_CR2_DS_3)
+		SPISetDataSize(SPIDataSize_8b);
+#endif
 
-	SPI3->DR = data;								// Fill output buffer with data
+	uint8_t* SPI_DR = (uint8_t*)&(SPI3->DR);		// cast the data register address as an 8 bit pointer - otherwise data gets packed wtih an extra byte of zeros
+	*SPI_DR = data;
+	//SPI3->DR = data;								// Fill output buffer with data
 
 	while (SPI_DMA_Working);						// Wait for transmission to complete
 }
 
-void LCD::SPI_DMA_SendHalfWord(const uint16_t& value, const uint16_t& count) {
 
-	while (SPI_DMA_Working);						// Check number of data items to transfer is zero (ie stream is free)
-
-	DMAint16 = value;								// data to transfer - use class property so does not go out of scope
-
-	//	Clear DMA transfer half transfer and transfer complete interrupt flags in DMA_HISR
-	DMA1->HIFCR = DMA_HIFCR_CHTIF5 | DMA_HIFCR_CTCIF5;
-
-	DMA1_Stream5->CR &= ~DMA_SxCR_MINC;				// Memory not in increment mode
-	DMA1_Stream5->NDTR = count;						// Number of data items to transfer
-	DMA1_Stream5->M0AR = (uint32_t) &DMAint16;		// DMA_InitStruct.DMA_Memory0BaseAddr;
-	DMA1_Stream5->CR |= DMA_SxCR_EN;				// Enable DMA transfer stream
-	SPI3->CR2 |= SPI_CR2_TXDMAEN;					// Enable SPI TX DMA
-
-}
 
 
 

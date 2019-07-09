@@ -1,4 +1,8 @@
+#ifdef STM32F722xx
+#include "stm32f7xx.h"
+#else
 #include "stm32f4xx.h"
+#endif
 #include <cmath>
 #include <string>
 #include <queue>
@@ -26,7 +30,10 @@ volatile uint16_t freqCrossZero, FFTErrors = 0;
 
 
 //	default calibration values for 15k and 100k resistors on input opamp scaling to a maximum of 8v (slightly less for negative signals)
-#ifdef STM32F446xx
+#if defined(STM32F722xx)
+	volatile int16_t vCalibOffset = -4240;
+	volatile float vCalibScale = 1.41f;
+#elif defined(STM32F446xx)
 	volatile int16_t vCalibOffset = -4990;
 	volatile float vCalibScale = 1.41f;
 #else
@@ -83,15 +90,18 @@ int main(void) {
 	InitADC();
 	InitEncoders();
 	InitUART();
-	InitDAC();		// FIXME For testing
+//	InitDAC();		// FIXME For testing
 
 	lcd.Init();								// Initialize ILI9341 LCD
 
+/*
 	for (int p = 0; p < 50; ++p) {
-		lcd.DrawLine(10, 2, 10, 6, LCD_RED);
-		lcd.DrawLine(10, 4, 10, 8, LCD_BLUE);
+		lcd.ColourFill(10, 2, 10, 6, LCD_RED);
+		lcd.ColourFill(10, 4, 10, 8, LCD_BLUE);
 		lcd.Delay(100000);
 	}
+*/
+
 
 	InitSampleAcquisition();
 	ui.ResetMode();
@@ -101,6 +111,7 @@ int main(void) {
 	uint16_t DrawBuff1[(DRAWHEIGHT + 1) * FFTDRAWBUFFERWIDTH];
 	fft.setDrawBuffer(DrawBuff0, DrawBuff1);
 	osc.setDrawBuffer(DrawBuff0, DrawBuff1);
+
 
 	CalibZeroPos = CalcZeroSize();
 
@@ -226,43 +237,39 @@ int main(void) {
 					freqCrossZero = drawPos;
 					freqBelowZero = false;
 				}
+
 				// create draw buffer
 				std::pair<uint16_t, uint16_t> AY = std::minmax(pixelA, (uint16_t)prevPixelA);
 				std::pair<uint16_t, uint16_t> BY = std::minmax(pixelB, (uint16_t)prevPixelB);
+				std::pair<uint16_t, uint16_t> CY = std::minmax(pixelC, (uint16_t)prevPixelC);
 
+				uint8_t vOffset = (drawPos < 27 || drawPos > 250) ? 10 : 0;		// offset draw area so as not to overwrite voltage and freq labels
+				for (uint8_t h = 0; h <= DRAWHEIGHT - (drawPos < 27 ? 12 : 0); ++h) {
 
-				for (uint8_t h = 0; h <= DRAWHEIGHT - (drawPos < 27 ? 11 : 0); ++h) {
-					if (h >= AY.first && h <= AY.second) {
-						osc.DrawBuffer[osc.DrawBufferNumber][h] = LCD_GREEN;
-					} else if (h >= BY.first && h <= BY.second) {
-						osc.DrawBuffer[osc.DrawBufferNumber][h] = LCD_LIGHTBLUE;
+					if (h < vOffset) {
+						// do not draw
+					} else if (osc.OscDisplay & 1 && h >= AY.first && h <= AY.second) {
+						osc.DrawBuffer[osc.DrawBufferNumber][h - vOffset] = LCD_GREEN;
+					} else if (osc.OscDisplay & 2 && h >= BY.first && h <= BY.second) {
+						osc.DrawBuffer[osc.DrawBufferNumber][h - vOffset] = LCD_LIGHTBLUE;
+					} else if (osc.OscDisplay & 4 && h >= CY.first && h <= CY.second) {
+						osc.DrawBuffer[osc.DrawBufferNumber][h - vOffset] = LCD_ORANGE;
 					} else if (drawPos % 4 == 0 && h == DRAWHEIGHT / 2) {
-						osc.DrawBuffer[osc.DrawBufferNumber][h] = LCD_GREY;
+						osc.DrawBuffer[osc.DrawBufferNumber][h - vOffset] = LCD_GREY;
 					} else {
-						osc.DrawBuffer[osc.DrawBufferNumber][h] = LCD_BLACK;
+						osc.DrawBuffer[osc.DrawBufferNumber][h - vOffset] = LCD_BLACK;
+					}
+				}
+				if (drawPos < 5) {
+					for (int m = 0; m < voltScale * 2; ++m) {
+						osc.DrawBuffer[osc.DrawBufferNumber][m * DRAWHEIGHT / (voltScale * 2)] = LCD_GREY;
 					}
 				}
 
 				debugCount = DMA1_Stream5->NDTR;
 
-				lcd.PatternFill(drawPos, 0, drawPos, DRAWHEIGHT - (drawPos < 27 ? 11 : 0), osc.DrawBuffer[osc.DrawBufferNumber]);
+				lcd.PatternFill(drawPos, vOffset, drawPos, DRAWHEIGHT - (drawPos < 27 ? 12 : 0), osc.DrawBuffer[osc.DrawBufferNumber]);
 				osc.DrawBufferNumber = osc.DrawBufferNumber == 0 ? 1 : 0;
-
-				/*// draw center line and voltage markers
-				if (drawPos % 4 == 0) {
-					lcd.DrawPixel(drawPos, DRAWHEIGHT / 2, LCD_GREY);
-				}
-				if (drawPos < 5) {
-					for (int m = 0; m < voltScale * 2; ++m) {
-						lcd.DrawPixel(drawPos, m * DRAWHEIGHT / (voltScale * 2), LCD_GREY);
-					}
-				}
-
-
-				// Draw current samples as lines from previous pixel position to current sample position
-				lcd.DrawLine(drawPos, pixelA, drawPos, prevPixelA, LCD_GREEN);
-				lcd.DrawLine(drawPos, pixelB, drawPos, prevPixelB, LCD_LIGHTBLUE);
-				//lcd.DrawLine(drawPos, pixelC, drawPos, prevPixelC, LCD_ORANGE);*/
 
 				// Store previous sample so next sample can be drawn as a line from old to new
 				prevPixelA = pixelA;
@@ -284,7 +291,6 @@ int main(void) {
 					}
 				}
 
-
 				if (drawPos == 1) {
 					// Write voltage
 					lcd.DrawString(0, 1, " " + ui.intToString(voltScale) + "v ", &lcd.Font_Small, LCD_GREY, LCD_BLACK);
@@ -295,6 +301,7 @@ int main(void) {
 				}
 
 			}
+
 		}
 	}
 }

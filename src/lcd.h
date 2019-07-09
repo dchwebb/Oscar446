@@ -1,6 +1,10 @@
 #pragma once
 
+#ifdef STM32F722xx
+#include "stm32f7xx.h"
+#else
 #include "stm32f4xx.h"
+#endif
 #include "fontData.h"
 #include <vector>
 #include <string>
@@ -57,8 +61,8 @@
 #define ILI9341_PRC					0xF7
 
 // Define macros for setting and clearing GPIO SPI pins
-#define LCD_RST_RESET	GPIOC->BSRR |= GPIO_BSRR_BR_1
-#define LCD_RST_SET 	GPIOC->BSRR |= GPIO_BSRR_BS_1
+#define LCD_RST_RESET	GPIOB->BSRR |= GPIO_BSRR_BR_0
+#define LCD_RST_SET 	GPIOB->BSRR |= GPIO_BSRR_BS_0
 #define LCD_DCX_RESET	GPIOC->BSRR |= GPIO_BSRR_BR_0
 #define LCD_DCX_SET		GPIOC->BSRR |= GPIO_BSRR_BS_0
 
@@ -93,11 +97,8 @@ public:
 	uint16_t DMAint16;
 	FontData Font_Small {7, 10, Font7x10};
 	FontData Font_Large {11, 18, Font11x18};
-/*
-	FontData Font_Medium {12, 12, Font12x12};
-
-	FontData Font_XLarge {16, 26, Font16x26};
-*/
+	//FontData Font_Medium {12, 12, Font12x12};
+	//FontData Font_XLarge {16, 26, Font16x26};
 
 	void Init(void);
 	void Rotate(LCD_Orientation_t orientation);
@@ -114,7 +115,6 @@ public:
 
 	void Command(const uint8_t& data);
 	void Delay(volatile uint32_t delay);
-
 private:
 
 	uint16_t charBuffer[2][16 * 26];
