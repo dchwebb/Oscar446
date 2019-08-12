@@ -1,12 +1,3 @@
-#ifdef STM32F722xx
-#include "stm32f7xx.h"
-#else
-#include "stm32f4xx.h"
-#endif
-#include <cmath>
-#include <string>
-#include <queue>
-#include <algorithm>
 #include "initialisation.h"
 #include "ui.h"
 #include "lcd.h"
@@ -14,35 +5,31 @@
 #include "midi.h"
 #include "osc.h"
 
+
 extern uint32_t SystemCoreClock;
-
-volatile uint16_t OscBufferA[2][DRAWWIDTH], OscBufferB[2][DRAWWIDTH], OscBufferC[2][DRAWWIDTH];
-volatile uint16_t prevPixelA = 0, prevPixelB = 0, prevPixelC = 0, adcA, adcB, adcC, oldAdc, capturePos = 0, drawPos = 0, bufferSamples = 0;
-volatile bool freqBelowZero, capturing = false, drawing = false, encoderBtnL = false, encoderBtnR = false;
-volatile uint8_t VertOffsetA = 0, VertOffsetB = 0, captureBufferNumber = 0, drawBufferNumber = 0;
-volatile int8_t encoderPendingL = 0, encoderStateL = 0, encoderPendingR = 0, encoderStateR = 0;
-volatile int16_t drawOffset[2] {0, 0};
-volatile uint16_t capturedSamples[2] {0, 0};
-volatile uint32_t debugCount = 0, coverageTimer = 0, coverageTotal = 0;
-volatile float freqFund;
-volatile uint16_t ADC_array[ADC_BUFFER_LENGTH];
-volatile uint16_t freqCrossZero, FFTErrors = 0;
-
+volatile uint32_t SysTickVal = 0;
 
 //	default calibration values for 15k and 100k resistors on input opamp scaling to a maximum of 8v (slightly less for negative signals)
 #if defined(STM32F722xx)
 	volatile int16_t vCalibOffset = -4240;
 	volatile float vCalibScale = 1.41f;
 #elif defined(STM32F446xx)
-	volatile int16_t vCalibOffset = -4990;
+	volatile int16_t vCalibOffset = -4240;
 	volatile float vCalibScale = 1.41f;
 #else
 	volatile int16_t vCalibOffset = -4190;
 	volatile float vCalibScale = 1.24f;
 #endif
-
-volatile int8_t voltScale = 8;
 volatile uint16_t CalibZeroPos = 9985;
+
+uint16_t DrawBuffer[2][(DRAWHEIGHT + 1) * FFTDRAWBUFFERWIDTH];
+volatile uint16_t OscBufferA[2][DRAWWIDTH], OscBufferB[2][DRAWWIDTH], OscBufferC[2][DRAWWIDTH];
+volatile uint16_t prevPixelA = 0, prevPixelB = 0, prevPixelC = 0, adcA, adcB, adcC, oldAdc, capturePos = 0, drawPos = 0, bufferSamples = 0;
+volatile bool freqBelowZero, capturing = false, drawing = false, encoderBtnL = false, encoderBtnR = false;
+volatile uint8_t VertOffsetA = 0, VertOffsetB = 0, captureBufferNumber = 0, drawBufferNumber = 0;
+//volatile int8_t encoderPendingL = 0, encoderStateL = 0, encoderPendingR = 0, encoderStateR = 0;
+volatile uint16_t ADC_array[ADC_BUFFER_LENGTH];
+volatile uint16_t freqCrossZero;
 
 volatile uint16_t zeroCrossings[2] {0, 0};
 volatile bool circDrawing[2] {false, false};
@@ -55,6 +42,8 @@ volatile float circAngle;
 mode displayMode = Oscilloscope;
 #define CIRCLENGTH 160
 
+volatile uint32_t debugCount = 0, coverageTimer = 0, coverageTotal = 0, MIDIDebug = 0;
+
 
 LCD lcd;
 FFT fft;
@@ -63,7 +52,7 @@ MIDIHandler midi;
 Osc osc;
 
 inline uint16_t CalcVertOffset(volatile const uint16_t& vPos) {
-	return std::max(std::min(((((float)(vPos * vCalibScale + vCalibOffset) / (4 * 4096) - 0.5f) * (8.0f / voltScale)) + 0.5f) * DRAWHEIGHT, (float)DRAWHEIGHT - 1), 1.0f);
+	return std::max(std::min(((((float)(vPos * vCalibScale + vCalibOffset) / (4 * 4096) - 0.5f) * (8.0f / osc.voltScale)) + 0.5f) * DRAWHEIGHT, (float)DRAWHEIGHT - 1), 1.0f);
 }
 
 inline uint16_t CalcZeroSize() {					// returns ADC size that corresponds to 0v
@@ -79,6 +68,7 @@ extern "C"
 	#include "interrupts.h"
 }
 
+
 int main(void) {
 
 	SystemInit();							// Activates floating point coprocessor and resets clock
@@ -90,27 +80,20 @@ int main(void) {
 	InitADC();
 	InitEncoders();
 	InitUART();
-//	InitDAC();		// FIXME For testing
+	InitSysTick();
+	//	InitDAC();		// FIXME For testing
 
 	lcd.Init();								// Initialize ILI9341 LCD
-
-/*
-	for (int p = 0; p < 50; ++p) {
-		lcd.ColourFill(10, 2, 10, 6, LCD_RED);
-		lcd.ColourFill(10, 4, 10, 8, LCD_BLUE);
-		lcd.Delay(100000);
-	}
-*/
 
 
 	InitSampleAcquisition();
 	ui.ResetMode();
 
 	// The FFT draw buffers are declared here and passed to the FFT Class as pointers to keep the size of the executable down
-	uint16_t DrawBuff0[(DRAWHEIGHT + 1) * FFTDRAWBUFFERWIDTH];
-	uint16_t DrawBuff1[(DRAWHEIGHT + 1) * FFTDRAWBUFFERWIDTH];
-	fft.setDrawBuffer(DrawBuff0, DrawBuff1);
-	osc.setDrawBuffer(DrawBuff0, DrawBuff1);
+	//uint16_t DrawBuffer[2][(DRAWHEIGHT + 1) * FFTDRAWBUFFERWIDTH];
+	//uint16_t DrawBuff1[(DRAWHEIGHT + 1) * FFTDRAWBUFFERWIDTH];
+	//fft.setDrawBuffer(DrawBuff0, DrawBuff1);
+	//osc.setDrawBuffer(DrawBuff0, DrawBuff1);
 
 
 	CalibZeroPos = CalcZeroSize();
@@ -196,7 +179,7 @@ int main(void) {
 
 		} else if (displayMode == Oscilloscope) {
 
-			if (!drawing && capturing) {								// check if we should start drawing
+			if (!drawing && (capturing || osc.noTriggerDraw)) {								// check if we should start drawing
 				drawBufferNumber = captureBufferNumber;
 				drawing = true;
 				drawPos = 0;
@@ -204,13 +187,13 @@ int main(void) {
 			}
 
 			// Check if drawing and that the sample capture is at or ahead of the draw position
-			if (drawing && (drawBufferNumber != captureBufferNumber || capturedSamples[captureBufferNumber] >= drawPos)) {
+			if (drawing && (drawBufferNumber != captureBufferNumber || osc.capturedSamples[captureBufferNumber] >= drawPos)) {
 
 				// Draw a black line over previous sample - except at beginning and end where we shouldn't clear the voltage and frequency markers
 				//lcd.ColourFill(drawPos, (drawPos < 27 || drawPos > 250 ? 11 : 0), drawPos, DRAWHEIGHT - (drawPos < 27 ? 11 : 0), LCD_BLACK);
 
 				// Calculate offset between capture and drawing positions to display correct sample
-				uint16_t calculatedOffset = (drawOffset[drawBufferNumber] + drawPos) % DRAWWIDTH;
+				uint16_t calculatedOffset = (osc.drawOffset[drawBufferNumber] + drawPos) % DRAWWIDTH;
 
 				uint16_t pixelA = CalcVertOffset(OscBufferA[drawBufferNumber][calculatedOffset]);
 				uint16_t pixelB = CalcVertOffset(OscBufferB[drawBufferNumber][calculatedOffset]);
@@ -243,32 +226,32 @@ int main(void) {
 				std::pair<uint16_t, uint16_t> BY = std::minmax(pixelB, (uint16_t)prevPixelB);
 				std::pair<uint16_t, uint16_t> CY = std::minmax(pixelC, (uint16_t)prevPixelC);
 
-				uint8_t vOffset = (drawPos < 27 || drawPos > 250) ? 10 : 0;		// offset draw area so as not to overwrite voltage and freq labels
+				uint8_t vOffset = (drawPos < 27 || drawPos > 250) ? 11 : 0;		// offset draw area so as not to overwrite voltage and freq labels
 				for (uint8_t h = 0; h <= DRAWHEIGHT - (drawPos < 27 ? 12 : 0); ++h) {
 
 					if (h < vOffset) {
 						// do not draw
 					} else if (osc.OscDisplay & 1 && h >= AY.first && h <= AY.second) {
-						osc.DrawBuffer[osc.DrawBufferNumber][h - vOffset] = LCD_GREEN;
+						DrawBuffer[osc.DrawBufferNumber][h - vOffset] = LCD_GREEN;
 					} else if (osc.OscDisplay & 2 && h >= BY.first && h <= BY.second) {
-						osc.DrawBuffer[osc.DrawBufferNumber][h - vOffset] = LCD_LIGHTBLUE;
+						DrawBuffer[osc.DrawBufferNumber][h - vOffset] = LCD_LIGHTBLUE;
 					} else if (osc.OscDisplay & 4 && h >= CY.first && h <= CY.second) {
-						osc.DrawBuffer[osc.DrawBufferNumber][h - vOffset] = LCD_ORANGE;
+						DrawBuffer[osc.DrawBufferNumber][h - vOffset] = LCD_ORANGE;
 					} else if (drawPos % 4 == 0 && h == DRAWHEIGHT / 2) {
-						osc.DrawBuffer[osc.DrawBufferNumber][h - vOffset] = LCD_GREY;
+						DrawBuffer[osc.DrawBufferNumber][h - vOffset] = LCD_GREY;
 					} else {
-						osc.DrawBuffer[osc.DrawBufferNumber][h - vOffset] = LCD_BLACK;
+						DrawBuffer[osc.DrawBufferNumber][h - vOffset] = LCD_BLACK;
 					}
 				}
 				if (drawPos < 5) {
-					for (int m = 0; m < voltScale * 2; ++m) {
-						osc.DrawBuffer[osc.DrawBufferNumber][m * DRAWHEIGHT / (voltScale * 2)] = LCD_GREY;
+					for (int m = 0; m < osc.voltScale * 2; ++m) {
+						DrawBuffer[osc.DrawBufferNumber][m * DRAWHEIGHT / (osc.voltScale * 2)] = LCD_GREY;
 					}
 				}
 
-				debugCount = DMA1_Stream5->NDTR;
+				//debugCount = DMA1_Stream5->NDTR;
 
-				lcd.PatternFill(drawPos, vOffset, drawPos, DRAWHEIGHT - (drawPos < 27 ? 12 : 0), osc.DrawBuffer[osc.DrawBufferNumber]);
+				lcd.PatternFill(drawPos, vOffset, drawPos, DRAWHEIGHT - (drawPos < 27 ? 12 : 0), DrawBuffer[osc.DrawBufferNumber]);
 				osc.DrawBufferNumber = osc.DrawBufferNumber == 0 ? 1 : 0;
 
 				// Store previous sample so next sample can be drawn as a line from old to new
@@ -279,6 +262,7 @@ int main(void) {
 				drawPos ++;
 				if (drawPos == DRAWWIDTH){
 					drawing = false;
+					osc.noTriggerDraw = false;
 					CP_CAP
 				}
 
@@ -293,11 +277,14 @@ int main(void) {
 
 				if (drawPos == 1) {
 					// Write voltage
-					lcd.DrawString(0, 1, " " + ui.intToString(voltScale) + "v ", &lcd.Font_Small, LCD_GREY, LCD_BLACK);
-					lcd.DrawString(0, DRAWHEIGHT - 10, "-" + ui.intToString(voltScale) + "v ", &lcd.Font_Small, LCD_GREY, LCD_BLACK);
+					lcd.DrawString(0, 1, " " + ui.intToString(osc.voltScale) + "v ", &lcd.Font_Small, LCD_GREY, LCD_BLACK);
+					lcd.DrawString(0, DRAWHEIGHT - 10, "-" + ui.intToString(osc.voltScale) + "v ", &lcd.Font_Small, LCD_GREY, LCD_BLACK);
 
 					// Write frequency
-					lcd.DrawString(250, 1, ui.floatToString(osc.Freq, false) + "Hz    ", &lcd.Font_Small, LCD_WHITE, LCD_BLACK);
+					if (osc.noTriggerDraw)
+						lcd.DrawString(250, 1, "No Trigger", &lcd.Font_Small, LCD_WHITE, LCD_BLACK);
+					else
+						lcd.DrawString(250, 1, ui.floatToString(osc.Freq, false) + "Hz    ", &lcd.Font_Small, LCD_WHITE, LCD_BLACK);
 				}
 
 			}
@@ -305,5 +292,3 @@ int main(void) {
 		}
 	}
 }
-
-

@@ -1,13 +1,9 @@
 #pragma once
 
-#include <string>
-#include <sstream>
-#include <cmath>
-#include <algorithm>
+#include "initialisation.h"
 #include "lcd.h"
 #include "fft.h"
 #include "osc.h"
-#include "initialisation.h"
 
 extern void ResetMode();
 
@@ -17,11 +13,11 @@ extern FFT fft;
 extern LCD lcd;
 extern Osc osc;
 
-extern volatile int8_t voltScale, encoderPendingL, encoderPendingR, encoderStateL;
+//extern volatile int8_t voltScale;
 extern volatile int16_t vCalibOffset;
-extern volatile uint16_t oldAdc, capturePos, bufferSamples, adcA, adcB, adcC;
-extern volatile bool encoderBtnL, encoderBtnR, FFTMode, capturing, drawing, menuMode;
 extern volatile float vCalibScale;
+extern volatile uint16_t oldAdc, capturePos, bufferSamples, adcA, adcB, adcC;
+extern volatile bool encoderBtnL, encoderBtnR, capturing, drawing, menuMode;
 extern volatile uint32_t debugCount, coverageTotal, coverageTimer;
 extern mode displayMode;
 
@@ -46,9 +42,10 @@ public:
 	encoderType EncoderModeL, EncoderModeR;
 	bool menuMode = false;
 
-	std::vector<MenuItem> OscMenu{  { 0, "Horiz Coarse", HorizScaleCoarse },{ 1, "Horiz Fine", HorizScaleFine },{ 2, "Vert scale", VoltScale},{ 3, "Trigger Y", TriggerY},
+	std::vector<MenuItem> OscMenu{  { 0, "Horiz Coarse", HorizScaleCoarse },{ 1, "Horiz Fine", HorizScaleFine },{ 2, "Vert scale", VoltScale},{ 3, "Trigger Y", Trigger_Y},
 		{ 4, "Trigger Ch", TriggerChannel},{ 5, "Calib Scale", CalibVertScale },{ 5, "Calib Offset", CalibVertOffset },{ 6, "Channel Sel", ChannelSelect } };
 	std::vector<MenuItem> FftMenu{  { 0, "Horiz Coarse", HorizScaleCoarse },{ 1, "Horiz Fine", HorizScaleFine },{ 2, "AutoTune", FFTAutoTune},{ 3, "Channel", FFTChannel} };
+	std::vector<MenuItem> CircMenu{ { 0, "Vert scale", VoltScale}, { 1, "Channel", FFTChannel},{ 2, "Zero cross", ZeroCross } };
 
 
 };

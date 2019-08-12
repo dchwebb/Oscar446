@@ -35,6 +35,7 @@ void TIM3_IRQHandler(void) {
 			capturing = true;
 			captureBufferNumber = circDataAvailable[0] ? 1 : 0;		// select correct capture buffer based on whether buffer 0 or 1 contains data
 			capturePos = 0;				// used to check if a sample is ready to be drawn
+			osc.CircZeroCrossCnt = 0;
 			zeroCrossings[captureBufferNumber] = 0;
 		}
 
@@ -43,18 +44,22 @@ void TIM3_IRQHandler(void) {
 			OscBufferA[captureBufferNumber][capturePos] = adcA;
 
 			// store array of zero crossing points
-			if (capturePos > 10 && oldAdc < CalibZeroPos && adcA >= CalibZeroPos) {
-				zeroCrossings[captureBufferNumber] = capturePos;
-				circDataAvailable[captureBufferNumber] = true;
+			if (capturePos > 0 && oldAdc < CalibZeroPos && adcA >= CalibZeroPos) {
+				osc.CircZeroCrossCnt++;
 
-				captureFreq[captureBufferNumber] = FreqFromPos(capturePos);		// get frequency here before potentially altering sampling speed
-				capturing = false;
+				if (osc.CircZeroCrossCnt == osc.CircZeroCrossings) {
+					zeroCrossings[captureBufferNumber] = capturePos;
+					circDataAvailable[captureBufferNumber] = true;
 
-				// auto adjust sample time to try and get the longest sample for the display (280 is number of pixels wide we ideally want the captured wave to be)
-				if (capturePos < 280) {
-					int16_t newARR = capturePos * (TIM3->ARR + 1) / 280;
-					if (newARR > 0)
-						TIM3->ARR = newARR;
+					captureFreq[captureBufferNumber] = FreqFromPos(capturePos);		// get frequency here before potentially altering sampling speed
+					capturing = false;
+
+					// auto adjust sample time to try and get the longest sample for the display (280 is number of pixels wide we ideally want the captured wave to be)
+					if (capturePos < 280) {
+						int16_t newARR = capturePos * (TIM3->ARR + 1) / 280;
+						if (newARR > 0)
+							TIM3->ARR = newARR;
+					}
 				}
 
 			// reached end  of buffer and zero crossing not found - increase timer size to get longer sample
@@ -78,21 +83,22 @@ void TIM3_IRQHandler(void) {
 		if (!capturing && (!drawing || captureBufferNumber != drawBufferNumber) && (osc.TriggerTest == nullptr || (bufferSamples > osc.TriggerX && oldAdc < osc.TriggerY && *osc.TriggerTest >= osc.TriggerY))) {
 			capturing = true;
 
-			if (osc.TriggerTest == nullptr) {								// free running mode
+			if (osc.TriggerTest == nullptr) {										// free running mode
 				capturePos = 0;
-				drawOffset[captureBufferNumber] = 0;
-				capturedSamples[captureBufferNumber] = -1;
+				osc.drawOffset[captureBufferNumber] = 0;
+				osc.capturedSamples[captureBufferNumber] = -1;
 			} else {
 				// calculate the drawing offset based on the current capture position minus the horizontal trigger position
-				drawOffset[captureBufferNumber] = capturePos - osc.TriggerX;
-				if (drawOffset[captureBufferNumber] < 0)	drawOffset[captureBufferNumber] += DRAWWIDTH;
+				osc.drawOffset[captureBufferNumber] = capturePos - osc.TriggerX;
+				if (osc.drawOffset[captureBufferNumber] < 0)
+					osc.drawOffset[captureBufferNumber] += DRAWWIDTH;
 
-				capturedSamples[captureBufferNumber] = osc.TriggerX - 1;	// used to check if a sample is ready to be drawn
+				osc.capturedSamples[captureBufferNumber] = osc.TriggerX - 1;	// used to check if a sample is ready to be drawn
 			}
 		}
 
 		// if capturing check if write buffer is full and switch to next buffer if so; if not full store current reading
-		if (capturing && capturedSamples[captureBufferNumber] == DRAWWIDTH - 1) {
+		if (capturing && osc.capturedSamples[captureBufferNumber] == DRAWWIDTH - 1) {
 			captureBufferNumber = captureBufferNumber == 1 ? 0 : 1;		// switch the capture buffer
 			bufferSamples = 0;			// stores number of samples captured since switching buffers to ensure triggered mode works correctly
 			capturing = false;
@@ -100,7 +106,6 @@ void TIM3_IRQHandler(void) {
 
 		// If capturing or buffering samples waiting for trigger store current readings in buffer and increment counters
 		if (capturing || !drawing || captureBufferNumber != drawBufferNumber) {
-			DAC->DHR12R1 = ADC_array[0];
 			OscBufferA[captureBufferNumber][capturePos] = adcA;
 			OscBufferB[captureBufferNumber][capturePos] = adcB;
 			OscBufferC[captureBufferNumber][capturePos] = adcC;
@@ -109,36 +114,80 @@ void TIM3_IRQHandler(void) {
 			if (capturePos == DRAWWIDTH - 1)	capturePos = 0;
 			else								capturePos++;
 
-			if (capturing)	capturedSamples[captureBufferNumber]++;
-			else 			bufferSamples++;
+			if (capturing)
+				osc.capturedSamples[captureBufferNumber]++;
+			else {
+				bufferSamples++;
+
+				// if trigger point not activating generate a temporary draw buffer
+				if (bufferSamples > 6000 && capturePos == 0) {
+					captureBufferNumber = captureBufferNumber == 1 ? 0 : 1;		// switch the capture buffer
+					bufferSamples = 0;
+					osc.drawOffset[captureBufferNumber] = 0;
+					osc.noTriggerDraw = true;
+				}
+			}
 
 		}
 	}
 }
 
-// Left Encoder Button
-void EXTI2_IRQHandler(void) {
+#ifdef STM32F446xx
 
-	if (!(GPIOC->IDR & L_BTN_NO(GPIO_IDR_IDR_))) 				// Encoder button pressed - L_BTN_NO() adds number of encoder button eg GPIO_IDR_IDR_2
+void EXTI15_10_IRQHandler(void) {
+
+	// Left Encoder Button
+	if (EXTI->PR & L_BTN_NO(EXTI_PR_PR,)) {
+		if (!(L_BTN_GPIO->IDR & L_BTN_NO(GPIO_IDR_IDR_,))) 			// Encoder button pressed - L_BTN_NO() adds number of encoder button eg GPIO_IDR_IDR_2
+			DB_ON													// Enable debounce timer
+		if (L_BTN_GPIO->IDR & L_BTN_NO(GPIO_IDR_IDR_,) && TIM5->CNT > 100) {	// Encoder button released - check enough time has elapsed to ensure not a bounce. A quick press if around 300, a long one around 8000+
+			encoderBtnL = true;
+			DB_OFF													// Disable debounce timer
+		}
+		EXTI->PR |= L_BTN_NO(EXTI_PR_PR,);							// Clear interrupt pending
+	}
+
+	if (EXTI->PR & R_BTN_NO(EXTI_PR_PR,)) {
+		// Right Encoder Button
+		if (!(R_BTN_GPIO->IDR & R_BTN_NO(GPIO_IDR_IDR_,))) 			// Encoder button pressed - R_BTN_NO() adds number of encoder button eg GPIO_IDR_IDR_7
+			DB_ON													// Enable debounce timer
+		if (R_BTN_GPIO->IDR & R_BTN_NO(GPIO_IDR_IDR_,) && TIM5->CNT > 100) {	// Encoder button released - check enough time has elapsed to ensure not a bounce. A quick press if around 300, a long one around 8000+
+			encoderBtnR = true;
+			DB_OFF													// Disable debounce timer
+		}
+		EXTI->PR |= R_BTN_NO(EXTI_PR_PR,);							// Clear interrupt pending
+	}
+}
+
+
+
+#else
+
+// Left Encoder Button
+void L_BTN_NO(EXTI, _IRQHandler)(void) {
+
+	if (!(L_BTN_GPIO->IDR & L_BTN_NO(GPIO_IDR_IDR_,))) 			// Encoder button pressed - L_BTN_NO() adds number of encoder button eg GPIO_IDR_IDR_2
 		DB_ON													// Enable debounce timer
-	if (GPIOC->IDR & L_BTN_NO(GPIO_IDR_IDR_) && TIM5->CNT > 100) {	// Encoder button released - check enough time has elapsed to ensure not a bounce. A quick press if around 300, a long one around 8000+
+	if (L_BTN_GPIO->IDR & L_BTN_NO(GPIO_IDR_IDR_,) && TIM5->CNT > 100) {	// Encoder button released - check enough time has elapsed to ensure not a bounce. A quick press if around 300, a long one around 8000+
 		encoderBtnL = true;
 		DB_OFF													// Disable debounce timer
 	}
-	EXTI->PR |= L_BTN_NO(EXTI_PR_PR);							// Clear interrupt pending
+	EXTI->PR |= L_BTN_NO(EXTI_PR_PR,);							// Clear interrupt pending
 }
 
 // Right Encoder Button
 void EXTI9_5_IRQHandler(void) {
 
-	if (!(R_BTN_GPIO->IDR & R_BTN_NO(GPIO_IDR_IDR_))) 			// Encoder button pressed - R_BTN_NO() adds number of encoder button eg GPIO_IDR_IDR_7
+	if (!(R_BTN_GPIO->IDR & R_BTN_NO(GPIO_IDR_IDR_,))) 			// Encoder button pressed - R_BTN_NO() adds number of encoder button eg GPIO_IDR_IDR_7
 		DB_ON													// Enable debounce timer
-	if (R_BTN_GPIO->IDR & R_BTN_NO(GPIO_IDR_IDR_) && TIM5->CNT > 100) {	// Encoder button released - check enough time has elapsed to ensure not a bounce. A quick press if around 300, a long one around 8000+
+	if (R_BTN_GPIO->IDR & R_BTN_NO(GPIO_IDR_IDR_,) && TIM5->CNT > 100) {	// Encoder button released - check enough time has elapsed to ensure not a bounce. A quick press if around 300, a long one around 8000+
 		encoderBtnR = true;
 		DB_OFF													// Disable debounce timer
 	}
-	EXTI->PR |= R_BTN_NO(EXTI_PR_PR);							// Clear interrupt pending
+	EXTI->PR |= R_BTN_NO(EXTI_PR_PR,);							// Clear interrupt pending
 }
+
+#endif
 
 //	Coverage timer
 void TIM1_BRK_TIM9_IRQHandler(void) {
@@ -148,13 +197,14 @@ void TIM1_BRK_TIM9_IRQHandler(void) {
 
 // MIDI Decoder
 void UART4_IRQHandler(void) {
-#ifndef STM32F722xx
 	if (UART4->SR | USART_SR_RXNE) {
-		midi.MIDIQueue.push(UART4->DR);							// accessing DR automatically resets the receive flag
+		midi.Queue[midi.QueueWrite] = UART4->DR; 				// accessing DR automatically resets the receive flag
+		midi.QueueSize++;
+		midi.QueueWrite = (midi.QueueWrite + 1) % MIDIQUEUESIZE;
+		//midi.MIDIQueue.push(UART4->DR);							// accessing DR automatically resets the receive flag
 	}
-#else
-	if (UART4->ISR | USART_ISR_RXNE) {
-		midi.MIDIQueue.push(UART4->RDR);						// accessing DR automatically resets the receive flag
-	}
-#endif
+}
+
+void SysTick_Handler(void) {
+	SysTickVal++;
 }

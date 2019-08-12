@@ -30,7 +30,8 @@ void UI::MenuAction(encoderType* et, volatile const int8_t& val) {
 		currentMenu = &OscMenu;
 	else if (displayMode == Fourier || displayMode == Waterfall)
 		currentMenu = &FftMenu;
-	else if (displayMode == Circular) {}
+	else if (displayMode == Circular)
+		currentMenu = &CircMenu;
 	else if (displayMode == MIDI) {}
 
 	//	Move the selected menu item one forwards or one back based on value of encoder
@@ -44,6 +45,9 @@ void UI::MenuAction(encoderType* et, volatile const int8_t& val) {
 	if (displayMode == Oscilloscope) {
 		osc.EncModeL = EncoderModeL;
 		osc.EncModeR = EncoderModeR;
+	} else if (displayMode == Circular) {
+		osc.CircEncModeL = EncoderModeL;
+		osc.CircEncModeR = EncoderModeR;
 	} else if (displayMode == Fourier) {
 		fft.EncModeL = EncoderModeL;
 		fft.EncModeR = EncoderModeR;
@@ -56,10 +60,11 @@ void UI::EncoderAction(encoderType type, const int8_t& val) {
 	int16_t adj;
 	switch (type) {
 	case HorizScaleCoarse :
-		adj = TIM3->ARR + 10 * val;
-		if (adj > 10 && adj < 6000)
+		adj = TIM3->ARR + (TIM3->ARR < 100 ? 5 : TIM3->ARR < 500 ? 10 : TIM3->ARR < 1000 ? 50 : 100) * val;
+		if (adj > 10 && adj < 6000) {
 			TIM3->ARR = adj;
-		DrawUI();
+			DrawUI();
+		}
 		break;
 	case HorizScaleFine :
 		TIM3->ARR += val;
@@ -71,9 +76,13 @@ void UI::EncoderAction(encoderType type, const int8_t& val) {
 	case CalibVertScale :
 		vCalibScale += val * .01;
 		break;
+	case ZeroCross :
+		osc.CircZeroCrossings = std::max(std::min(osc.CircZeroCrossings + val, 8), 1);
+		DrawUI();
+		break;
 	case VoltScale :
-		voltScale += val;
-		voltScale = std::max(std::min((int)voltScale, 8), 1);
+		osc.voltScale += val;
+		osc.voltScale = std::max(std::min((int)osc.voltScale, 8), 1);
 		if (displayMode == Circular) {
 			lcd.ScreenFill(LCD_BLACK);
 			DrawUI();
@@ -98,8 +107,8 @@ void UI::EncoderAction(encoderType type, const int8_t& val) {
 
 		DrawUI();
 		break;
-	case TriggerY :
-		osc.TriggerY += 100 * val;
+	case Trigger_Y :
+		osc.TriggerY = std::min(std::max(osc.TriggerY + 100 * val, 3800), 16000);
 		break;
 	case FFTAutoTune :
 		fft.autoTune = !fft.autoTune;
@@ -128,6 +137,8 @@ void UI::DrawMenu() {
 	std::vector<MenuItem>* currentMenu;
 	if (displayMode == Oscilloscope)
 		currentMenu = &OscMenu;
+	else if (displayMode == Circular)
+		currentMenu = &CircMenu;
 	else if (displayMode == Fourier || displayMode == Waterfall)
 		currentMenu = &FftMenu;
 
@@ -140,33 +151,34 @@ void UI::DrawMenu() {
 
 void UI::handleEncoders() {
 	// encoders count in fours with the zero point set to 100
-	if (std::abs((int8_t)100 - L_ENC_CNT) > 3) {
-		int8_t v = L_ENC_CNT > 100 ? 1 : -1;
+	if (std::abs((int16_t)32000 - L_ENC_CNT) > 3) {
+		int8_t v = L_ENC_CNT > 32000 ? 1 : -1;
 		if (menuMode)
 			MenuAction(&EncoderModeL, v);
 		else
 			EncoderAction(EncoderModeL, v);
 
-		L_ENC_CNT -= L_ENC_CNT > 100 ? 4 : -4;
+		L_ENC_CNT -= L_ENC_CNT > 32000 ? 4 : -4;
 	}
 
-	if (std::abs((int8_t)100 - R_ENC_CNT) > 3) {
-		int8_t v = R_ENC_CNT > 100 ? 1 : -1;
+	if (std::abs((int16_t)32000 - R_ENC_CNT) > 3) {
+		int8_t v = R_ENC_CNT > 32000 ? 1 : -1;
 		if (menuMode)	MenuAction(&EncoderModeR, v);
 		else			EncoderAction(EncoderModeR, v);
 
-		R_ENC_CNT -= R_ENC_CNT > 100 ? 4 : -4;
+		R_ENC_CNT -= R_ENC_CNT > 32000 ? 4 : -4;
 
 	}
 
 	if ((encoderBtnL || encoderBtnR) && menuMode) {
 		encoderBtnL = encoderBtnR = menuMode = false;
+		lcd.ScreenFill(LCD_BLACK);
 		DrawUI();
 		return;
 	}
 
 	// Menu mode
-	if (encoderBtnR && (displayMode == Oscilloscope || displayMode == Fourier)) {
+	if (encoderBtnR && (displayMode == Oscilloscope || displayMode == Circular || displayMode == Fourier)) {
 		menuMode = true;
 		lcd.ScreenFill(LCD_BLACK);
 		DrawMenu();
@@ -248,7 +260,9 @@ std::string UI::EncoderLabel(encoderType type) {
 		return "Calib Offs";
 	case VoltScale :
 		return "Zoom Vert";
-	case TriggerY :
+	case ZeroCross :
+		return "Zero X: " + intToString(osc.CircZeroCrossings);
+	case Trigger_Y :
 		return "Trigger Y";
 	case TriggerChannel :
 		return std::string(osc.TriggerTest == &adcA ? "Trigger A " : osc.TriggerTest == &adcB ? "Trigger B " : osc.TriggerTest == &adcC ? "Trigger C " : "No Trigger");
