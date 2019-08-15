@@ -81,20 +81,10 @@ int main(void) {
 	InitEncoders();
 	InitUART();
 	InitSysTick();
-	//	InitDAC();		// FIXME For testing
 
 	lcd.Init();								// Initialize ILI9341 LCD
-
-
 	InitSampleAcquisition();
 	ui.ResetMode();
-
-	// The FFT draw buffers are declared here and passed to the FFT Class as pointers to keep the size of the executable down
-	//uint16_t DrawBuffer[2][(DRAWHEIGHT + 1) * FFTDRAWBUFFERWIDTH];
-	//uint16_t DrawBuff1[(DRAWHEIGHT + 1) * FFTDRAWBUFFERWIDTH];
-	//fft.setDrawBuffer(DrawBuff0, DrawBuff1);
-	//osc.setDrawBuffer(DrawBuff0, DrawBuff1);
-
 
 	CalibZeroPos = CalcZeroSize();
 
@@ -180,18 +170,14 @@ int main(void) {
 		} else if (displayMode == Oscilloscope) {
 
 			if (!drawing && (capturing || osc.noTriggerDraw)) {								// check if we should start drawing
-				drawBufferNumber = captureBufferNumber;
+				drawBufferNumber = osc.noTriggerDraw ? !(bool)captureBufferNumber : captureBufferNumber;
 				drawing = true;
 				drawPos = 0;
 				CP_ON
 			}
 
 			// Check if drawing and that the sample capture is at or ahead of the draw position
-			if (drawing && (drawBufferNumber != captureBufferNumber || osc.capturedSamples[captureBufferNumber] >= drawPos)) {
-
-				// Draw a black line over previous sample - except at beginning and end where we shouldn't clear the voltage and frequency markers
-				//lcd.ColourFill(drawPos, (drawPos < 27 || drawPos > 250 ? 11 : 0), drawPos, DRAWHEIGHT - (drawPos < 27 ? 11 : 0), LCD_BLACK);
-
+			if (drawing && (drawBufferNumber != captureBufferNumber || osc.capturedSamples[captureBufferNumber] >= drawPos || osc.noTriggerDraw)) {
 				// Calculate offset between capture and drawing positions to display correct sample
 				uint16_t calculatedOffset = (osc.drawOffset[drawBufferNumber] + drawPos) % DRAWWIDTH;
 
@@ -214,8 +200,9 @@ int main(void) {
 				}
 				if (freqBelowZero && OscBufferA[drawBufferNumber][calculatedOffset] >= CalibZeroPos) {		// zero crossing
 					//	second zero crossing - calculate frequency averaged over a number passes to smooth
-					if (freqCrossZero > 0) {
-						osc.Freq = (3 * osc.Freq + FreqFromPos(drawPos - freqCrossZero)) / 4;
+					if (freqCrossZero > 0 && drawPos - freqCrossZero > 3) {
+						//osc.Freq = (3 * osc.Freq + FreqFromPos(drawPos - freqCrossZero)) / 4;
+						osc.Freq = FreqFromPos(drawPos - freqCrossZero);
 					}
 					freqCrossZero = drawPos;
 					freqBelowZero = false;
@@ -263,6 +250,7 @@ int main(void) {
 				if (drawPos == DRAWWIDTH){
 					drawing = false;
 					osc.noTriggerDraw = false;
+					//osc.Freq = 0;
 					CP_CAP
 				}
 
@@ -281,10 +269,13 @@ int main(void) {
 					lcd.DrawString(0, DRAWHEIGHT - 10, "-" + ui.intToString(osc.voltScale) + "v ", &lcd.Font_Small, LCD_GREY, LCD_BLACK);
 
 					// Write frequency
-					if (osc.noTriggerDraw)
-						lcd.DrawString(250, 1, "No Trigger", &lcd.Font_Small, LCD_WHITE, LCD_BLACK);
-					else
-						lcd.DrawString(250, 1, ui.floatToString(osc.Freq, false) + "Hz    ", &lcd.Font_Small, LCD_WHITE, LCD_BLACK);
+					if (osc.noTriggerDraw) {
+						lcd.DrawString(250, 1, "No Trigger " , &lcd.Font_Small, LCD_WHITE, LCD_BLACK);
+					} else {
+						lcd.DrawString(250, 1, osc.Freq != 0 ? ui.floatToString(osc.Freq, false) + "Hz    " : "          ", &lcd.Font_Small, LCD_WHITE, LCD_BLACK);
+						osc.Freq = 0;
+					}
+
 				}
 
 			}

@@ -7,11 +7,11 @@ fft.cpp:18:6:void FFT::runFFT(volatile float*)	16	static
 fft.cpp:28:6:void FFT::waterfall(volatile float*)	16	static
 fft.cpp:40:6:void FFT::displayWaterfall(volatile float*)	96	static
 cmath:1802:5:constexpr typename __gnu_cxx::__enable_if<std::__is_integer<_Tp>::__value, double>::__type std::round(_Tp) [with _Tp = int]	24	static
-fft.cpp:146:6:void FFT::calcFFT(volatile float*)	120	static
-fft.cpp:236:6:void FFT::displayFFT(volatile float*)	288	static
-fft.cpp:342:14:float FFT::harmonicFreq(uint16_t)	16	static
-fft.cpp:347:6:void FFT::sampleCapture(bool)	16	static
-fft.cpp:360:6:void FFT::FFTInfo()	184	static
+fft.cpp:145:6:void FFT::calcFFT(volatile float*)	120	static
+fft.cpp:235:6:void FFT::displayFFT(volatile float*)	280	static
+fft.cpp:334:14:float FFT::harmonicFreq(uint16_t)	16	static
+fft.cpp:339:6:void FFT::sampleCapture(bool)	16	static
+fft.cpp:352:6:void FFT::FFTInfo()	184	static
 move.h:101:5:constexpr typename std::remove_reference< <template-parameter-1-1> >::type&& std::move(_Tp&&) [with _Tp = std::__cxx11::basic_string<char>&]	16	static
 basic_string.h:5021:5:std::__cxx11::basic_string<_CharT, _Traits, _Alloc> std::operator+(std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&&, std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]	40	static
 array:171:7:constexpr std::array<_Tp, _Nm>::size_type std::array<_Tp, _Nm>::size() const [with _Tp = short unsigned int; unsigned int _Nm = 5u]	16	static

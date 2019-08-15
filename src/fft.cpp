@@ -82,7 +82,6 @@ void FFT::displayWaterfall(volatile float candSin[]) {
 			drawWaterfall[waterfallBuffer][i - SMOOTHSIZE] = smoothVals[sPos];
 		}
 
-
 	}
 
 	sampleCapture(true);			// Signal to Interrupt that new capture can start
@@ -270,9 +269,6 @@ void FFT::displayFFT(volatile float candSin[]) {
 		for (h = 0; h <= DRAWHEIGHT; ++h) {
 			uint16_t buffPos = h * FFTDRAWBUFFERWIDTH + ((i - 1) % FFTDRAWBUFFERWIDTH);
 
-			if (h == 161) {
-				volatile int suspx = 1;
-			}
 			// depending on harmonic height draw either harmonic or black, using different colours to indicate main harmonics
 			if (h >= top) {
 				badFFT++;					// every so often the FFT fails with extremely large numbers in all positions - just abort the draw and resample
@@ -285,10 +281,6 @@ void FFT::displayFFT(volatile float candSin[]) {
 			} else {
 				DrawBuffer[FFTDrawBufferNumber][buffPos] = LCD_BLACK;
 			}
-		}
-
-		if (i == 230) {
-			volatile int susp = 1;
 		}
 
 		// check if ready to draw next buffer

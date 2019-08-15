@@ -7,7 +7,6 @@
 #define LUTSIZE 1024
 #define FFTSAMPLES 1024
 #define FFTDRAWBUFFERWIDTH 80
-#define FFTDRAWAFTERCALC true
 #define FFTHARMONICCOLOURS 5
 
 #define WATERFALLDRAWHEIGHT 80
@@ -43,7 +42,7 @@ public:
 
 private:
 	float candCos[FFTSAMPLES];
-	float freqFund;
+	float freqFund = 0.0f;
 
 	std::string CurrentHertz;
 	uint32_t maxHyp = 0;

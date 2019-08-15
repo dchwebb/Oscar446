@@ -83,7 +83,7 @@ void TIM3_IRQHandler(void) {
 		if (!capturing && (!drawing || captureBufferNumber != drawBufferNumber) && (osc.TriggerTest == nullptr || (bufferSamples > osc.TriggerX && oldAdc < osc.TriggerY && *osc.TriggerTest >= osc.TriggerY))) {
 			capturing = true;
 
-			if (osc.TriggerTest == nullptr) {										// free running mode
+			if (osc.TriggerTest == nullptr) {									// free running mode
 				capturePos = 0;
 				osc.drawOffset[captureBufferNumber] = 0;
 				osc.capturedSamples[captureBufferNumber] = -1;
@@ -114,13 +114,12 @@ void TIM3_IRQHandler(void) {
 			if (capturePos == DRAWWIDTH - 1)	capturePos = 0;
 			else								capturePos++;
 
-			if (capturing)
-				osc.capturedSamples[captureBufferNumber]++;
-			else {
+			osc.capturedSamples[captureBufferNumber]++;
+			if (!capturing) {
 				bufferSamples++;
 
 				// if trigger point not activating generate a temporary draw buffer
-				if (bufferSamples > 6000 && capturePos == 0) {
+				if (bufferSamples > 1000 && capturePos == 0) {
 					captureBufferNumber = captureBufferNumber == 1 ? 0 : 1;		// switch the capture buffer
 					bufferSamples = 0;
 					osc.drawOffset[captureBufferNumber] = 0;
