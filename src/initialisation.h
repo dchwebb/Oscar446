@@ -86,6 +86,8 @@
 #endif
 
 #define ADC_BUFFER_LENGTH 12
+#define DRAWBUFFERWIDTH 80
+#define CIRCLENGTH 160
 
 extern volatile uint16_t ADC_array[];
 extern volatile uint32_t SysTickVal;

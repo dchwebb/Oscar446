@@ -31,12 +31,12 @@ void TIM3_IRQHandler(void) {
 
 
 		// check if we should start capturing - ie there is a buffer spare and a zero crossing has occured
-		if (!capturing && oldAdc < CalibZeroPos && adcA >= CalibZeroPos && (!circDataAvailable[0] || !circDataAvailable[1])) {
+		if (!capturing && oldAdc < CalibZeroPos && adcA >= CalibZeroPos && (!osc.circDataAvailable[0] || !osc.circDataAvailable[1])) {
 			capturing = true;
-			captureBufferNumber = circDataAvailable[0] ? 1 : 0;		// select correct capture buffer based on whether buffer 0 or 1 contains data
+			captureBufferNumber = osc.circDataAvailable[0] ? 1 : 0;		// select correct capture buffer based on whether buffer 0 or 1 contains data
 			capturePos = 0;				// used to check if a sample is ready to be drawn
 			osc.CircZeroCrossCnt = 0;
-			zeroCrossings[captureBufferNumber] = 0;
+			osc.zeroCrossings[captureBufferNumber] = 0;
 		}
 
 		// If capturing store current readings in buffer and increment counters
@@ -48,10 +48,10 @@ void TIM3_IRQHandler(void) {
 				osc.CircZeroCrossCnt++;
 
 				if (osc.CircZeroCrossCnt == osc.CircZeroCrossings) {
-					zeroCrossings[captureBufferNumber] = capturePos;
-					circDataAvailable[captureBufferNumber] = true;
+					osc.zeroCrossings[captureBufferNumber] = capturePos;
+					osc.circDataAvailable[captureBufferNumber] = true;
 
-					captureFreq[captureBufferNumber] = FreqFromPos(capturePos);		// get frequency here before potentially altering sampling speed
+					osc.captureFreq[captureBufferNumber] = FreqFromPos(capturePos);		// get frequency here before potentially altering sampling speed
 					capturing = false;
 
 					// auto adjust sample time to try and get the longest sample for the display (280 is number of pixels wide we ideally want the captured wave to be)
@@ -200,7 +200,6 @@ void UART4_IRQHandler(void) {
 		midi.Queue[midi.QueueWrite] = UART4->DR; 				// accessing DR automatically resets the receive flag
 		midi.QueueSize++;
 		midi.QueueWrite = (midi.QueueWrite + 1) % MIDIQUEUESIZE;
-		//midi.MIDIQueue.push(UART4->DR);							// accessing DR automatically resets the receive flag
 	}
 }
 

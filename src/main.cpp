@@ -10,10 +10,7 @@ extern uint32_t SystemCoreClock;
 volatile uint32_t SysTickVal = 0;
 
 //	default calibration values for 15k and 100k resistors on input opamp scaling to a maximum of 8v (slightly less for negative signals)
-#if defined(STM32F722xx)
-	volatile int16_t vCalibOffset = -4240;
-	volatile float vCalibScale = 1.41f;
-#elif defined(STM32F446xx)
+#if defined(STM32F722xx) || defined(STM32F446xx)
 	volatile int16_t vCalibOffset = -4240;
 	volatile float vCalibScale = 1.41f;
 #else
@@ -22,25 +19,14 @@ volatile uint32_t SysTickVal = 0;
 #endif
 volatile uint16_t CalibZeroPos = 9985;
 
-uint16_t DrawBuffer[2][(DRAWHEIGHT + 1) * FFTDRAWBUFFERWIDTH];
+uint16_t DrawBuffer[2][(DRAWHEIGHT + 1) * DRAWBUFFERWIDTH];
 volatile uint16_t OscBufferA[2][DRAWWIDTH], OscBufferB[2][DRAWWIDTH], OscBufferC[2][DRAWWIDTH];
 volatile uint16_t prevPixelA = 0, prevPixelB = 0, prevPixelC = 0, adcA, adcB, adcC, oldAdc, capturePos = 0, drawPos = 0, bufferSamples = 0;
-volatile bool freqBelowZero, capturing = false, drawing = false, encoderBtnL = false, encoderBtnR = false;
-volatile uint8_t VertOffsetA = 0, VertOffsetB = 0, captureBufferNumber = 0, drawBufferNumber = 0;
-//volatile int8_t encoderPendingL = 0, encoderStateL = 0, encoderPendingR = 0, encoderStateR = 0;
+volatile bool capturing = false, drawing = false, encoderBtnL = false, encoderBtnR = false;
+volatile uint8_t captureBufferNumber = 0, drawBufferNumber = 0;
 volatile uint16_t ADC_array[ADC_BUFFER_LENGTH];
-volatile uint16_t freqCrossZero;
 
-volatile uint16_t zeroCrossings[2] {0, 0};
-volatile bool circDrawing[2] {false, false};
-volatile uint16_t circDrawPos[2] {0, 0};
-volatile uint16_t circPrevPixel[2] {0, 0};
-
-volatile bool circDataAvailable[2] {false, false};
-volatile float captureFreq[2] {0, 0};
-volatile float circAngle;
 mode displayMode = Oscilloscope;
-#define CIRCLENGTH 160
 
 volatile uint32_t debugCount = 0, coverageTimer = 0, coverageTotal = 0, MIDIDebug = 0;
 
@@ -115,35 +101,36 @@ int main(void) {
 		} else if (displayMode == Circular) {
 
 
-			if ((!circDrawing[0] && circDataAvailable[0] && (circDrawPos[1] >= zeroCrossings[1] || !circDrawing[1])) ||
-				(!circDrawing[1] && circDataAvailable[1] && (circDrawPos[0] >= zeroCrossings[0] || !circDrawing[0]))) {								// check if we should start drawing
+			if ((!osc.circDrawing[0] && osc.circDataAvailable[0] && (osc.circDrawPos[1] >= osc.zeroCrossings[1] || !osc.circDrawing[1])) ||
+				(!osc.circDrawing[1] && osc.circDataAvailable[1] && (osc.circDrawPos[0] >= osc.zeroCrossings[0] || !osc.circDrawing[0]))) {								// check if we should start drawing
 
-				drawBufferNumber = (!circDrawing[0] && circDataAvailable[0] && (circDrawPos[1] == zeroCrossings[1] || !circDrawing[1])) ? 0 : 1;
-				circDrawing[drawBufferNumber] = true;
-				circDrawPos[drawBufferNumber] = 0;
-				lcd.DrawString(140, DRAWHEIGHT + 8, ui.floatToString(captureFreq[drawBufferNumber], true) + "Hz  ", &lcd.Font_Small, LCD_WHITE, LCD_BLACK);
+				drawBufferNumber = (!osc.circDrawing[0] && osc.circDataAvailable[0] && (osc.circDrawPos[1] == osc.zeroCrossings[1] || !osc.circDrawing[1])) ? 0 : 1;
+				osc.circDrawing[drawBufferNumber] = true;
+				osc.circDrawPos[drawBufferNumber] = 0;
+				lcd.DrawString(140, DRAWHEIGHT + 8, ui.floatToString(osc.captureFreq[drawBufferNumber], true) + "Hz  ", &lcd.Font_Small, LCD_WHITE, LCD_BLACK);
+				CP_ON
 			}
 
 			// to have a continuous display drawing next sample as old sample is finishing
 			for (drawBufferNumber = 0; drawBufferNumber < 2; drawBufferNumber++) {
-				if (circDrawing[drawBufferNumber]) {
+				if (osc.circDrawing[drawBufferNumber]) {
 
 					// draw a line getting fainter as it goes from current position backwards
-					for (int pos = std::max((int)circDrawPos[drawBufferNumber] - CIRCLENGTH, 0); pos <= circDrawPos[drawBufferNumber] && pos <= zeroCrossings[drawBufferNumber]; pos++) {
+					for (int pos = std::max((int)osc.circDrawPos[drawBufferNumber] - CIRCLENGTH, 0); pos <= osc.circDrawPos[drawBufferNumber] && pos <= osc.zeroCrossings[drawBufferNumber]; pos++) {
 
 						int slopeOffset = 0;			// make negative to slope top left to bottom right and positive for opposite slope
-						int b = (int)std::round(pos * LUTSIZE / zeroCrossings[drawBufferNumber] + LUTSIZE / 4 + slopeOffset) % LUTSIZE;
+						int b = (int)std::round(pos * LUTSIZE / osc.zeroCrossings[drawBufferNumber] + LUTSIZE / 4 + slopeOffset) % LUTSIZE;
 						int x = fft.SineLUT[b] * 70 + 160;
 
 
 						int pixelA = CalcVertOffset(OscBufferA[drawBufferNumber][pos]);
-						if (pos == std::max((int)circDrawPos[drawBufferNumber] - CIRCLENGTH, 0)) {
+						if (pos == std::max((int)osc.circDrawPos[drawBufferNumber] - CIRCLENGTH, 0)) {
 							prevPixelA = pixelA;
 						}
-						uint16_t greenShade = (63 - (circDrawPos[drawBufferNumber] - pos) / 3) << 5;
-						uint16_t blueShade = (31 - (circDrawPos[drawBufferNumber] - pos) / 6);
+						uint16_t greenShade = (63 - (osc.circDrawPos[drawBufferNumber] - pos) / 3) << 5;
+						uint16_t blueShade = (31 - (osc.circDrawPos[drawBufferNumber] - pos) / 6);
 
-						if (pos < (int)circDrawPos[drawBufferNumber] - CIRCLENGTH + 2) {
+						if (pos < (int)osc.circDrawPos[drawBufferNumber] - CIRCLENGTH + 2) {
 							greenShade = LCD_BLACK;
 							blueShade = LCD_BLACK;
 						}
@@ -152,16 +139,17 @@ int main(void) {
 						lcd.DrawLine(x, pixelA, x, prevPixelA, greenShade);
 
 						// Draw normal osc
-						uint16_t oscPos = pos * DRAWWIDTH / zeroCrossings[drawBufferNumber];
+						uint16_t oscPos = pos * DRAWWIDTH / osc.zeroCrossings[drawBufferNumber];
 						lcd.DrawLine(oscPos, pixelA, oscPos, prevPixelA, blueShade);
 
 						prevPixelA = pixelA;
 					}
 
-					circDrawPos[drawBufferNumber] ++;
-					if (circDrawPos[drawBufferNumber] == zeroCrossings[drawBufferNumber] + CIRCLENGTH){
-						circDrawing[drawBufferNumber] = false;
-						circDataAvailable[drawBufferNumber] = false;
+					osc.circDrawPos[drawBufferNumber] ++;
+					if (osc.circDrawPos[drawBufferNumber] == osc.zeroCrossings[drawBufferNumber] + CIRCLENGTH){
+						osc.circDrawing[drawBufferNumber] = false;
+						osc.circDataAvailable[drawBufferNumber] = false;
+						CP_CAP
 					}
 				}
 
@@ -171,6 +159,7 @@ int main(void) {
 
 			if (!drawing && (capturing || osc.noTriggerDraw)) {								// check if we should start drawing
 				drawBufferNumber = osc.noTriggerDraw ? !(bool)captureBufferNumber : captureBufferNumber;
+				//drawBufferNumber = captureBufferNumber;
 				drawing = true;
 				drawPos = 0;
 				CP_ON
@@ -190,22 +179,24 @@ int main(void) {
 					prevPixelA = pixelA;
 					prevPixelB = pixelB;
 					prevPixelC = pixelC;
-					freqBelowZero = false;
-					freqCrossZero = 0;
+					osc.freqBelowZero = false;
+					osc.freqCrossZero = 0;
 				}
 
 				//	frequency calculation - detect upwards zero crossings
-				if (!freqBelowZero && OscBufferA[drawBufferNumber][calculatedOffset] < CalibZeroPos) {		// first time reading goes below zero
-					freqBelowZero = true;
+				if (!osc.freqBelowZero && OscBufferA[drawBufferNumber][calculatedOffset] < CalibZeroPos) {		// first time reading goes below zero
+					osc.freqBelowZero = true;
 				}
-				if (freqBelowZero && OscBufferA[drawBufferNumber][calculatedOffset] >= CalibZeroPos) {		// zero crossing
+				if (osc.freqBelowZero && OscBufferA[drawBufferNumber][calculatedOffset] >= CalibZeroPos) {		// zero crossing
 					//	second zero crossing - calculate frequency averaged over a number passes to smooth
-					if (freqCrossZero > 0 && drawPos - freqCrossZero > 3) {
-						//osc.Freq = (3 * osc.Freq + FreqFromPos(drawPos - freqCrossZero)) / 4;
-						osc.Freq = FreqFromPos(drawPos - freqCrossZero);
+					if (osc.freqCrossZero > 0 && drawPos - osc.freqCrossZero > 3) {
+						if (osc.Freq > 0)
+							osc.Freq = (3 * osc.Freq + FreqFromPos(drawPos - osc.freqCrossZero)) / 4;
+						else
+							osc.Freq = FreqFromPos(drawPos - osc.freqCrossZero);
 					}
-					freqCrossZero = drawPos;
-					freqBelowZero = false;
+					osc.freqCrossZero = drawPos;
+					osc.freqBelowZero = false;
 				}
 
 				// create draw buffer
@@ -250,7 +241,6 @@ int main(void) {
 				if (drawPos == DRAWWIDTH){
 					drawing = false;
 					osc.noTriggerDraw = false;
-					//osc.Freq = 0;
 					CP_CAP
 				}
 

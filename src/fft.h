@@ -6,7 +6,6 @@
 
 #define LUTSIZE 1024
 #define FFTSAMPLES 1024
-#define FFTDRAWBUFFERWIDTH 80
 #define FFTHARMONICCOLOURS 5
 
 #define WATERFALLDRAWHEIGHT 80
@@ -20,7 +19,7 @@ extern LCD lcd;
 
 extern volatile uint32_t debugCount, coverageTotal, coverageTimer;
 extern volatile uint8_t captureBufferNumber, drawBufferNumber;
-extern uint16_t DrawBuffer[2][(DRAWHEIGHT + 1) * FFTDRAWBUFFERWIDTH];
+extern uint16_t DrawBuffer[2][(DRAWHEIGHT + 1) * DRAWBUFFERWIDTH];
 
 class FFT {
 public:
