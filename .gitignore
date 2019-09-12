@@ -31,3 +31,13 @@
 *.out
 *.app
 /Debug/
+Hardware/oscar_panel.kicad_pcb-bak
+*.gbr
+Hardware/oscar.kicad_pcb-bak
+*.sch-bak
+*.kicad_pcb-bak
+*.bak
+*.drl
+*.zip
+*.svg
+Hardware/_autosave-oscar.pro
