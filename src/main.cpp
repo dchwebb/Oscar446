@@ -21,7 +21,7 @@ volatile uint16_t CalibZeroPos = 9985;
 
 uint16_t DrawBuffer[2][(DRAWHEIGHT + 1) * DRAWBUFFERWIDTH];
 volatile uint16_t OscBufferA[2][DRAWWIDTH], OscBufferB[2][DRAWWIDTH], OscBufferC[2][DRAWWIDTH];
-volatile uint16_t prevPixelA = 0, prevPixelB = 0, prevPixelC = 0, adcA, adcB, adcC, oldAdc, capturePos = 0, drawPos = 0, bufferSamples = 0;
+volatile uint16_t prevPixelA = 0, prevPixelB = 0, prevPixelC = 0, adcA, adcB, adcC, oldAdc, capturePos = 0, drawPos = 0, bufferSamples = 0, calculatedOffsetYB = 0, calculatedOffsetYC = 0;
 volatile bool capturing = false, drawing = false, encoderBtnL = false, encoderBtnR = false;
 volatile uint8_t captureBufferNumber = 0, drawBufferNumber = 0;
 volatile uint16_t ADC_array[ADC_BUFFER_LENGTH];
@@ -38,7 +38,7 @@ MIDIHandler midi;
 Osc osc;
 
 inline uint16_t CalcVertOffset(volatile const uint16_t& vPos) {
-	return std::max(std::min(((((float)(vPos * vCalibScale + vCalibOffset) / (4 * 4096) - 0.5f) * (8.0f / osc.voltScale)) + 0.5f) * DRAWHEIGHT, (float)DRAWHEIGHT - 1), 1.0f);
+	return std::max(std::min(((((float)(vPos * vCalibScale + vCalibOffset) / (4 * 4096) - 0.5f) * (8.0f / osc.voltScale)) + 0.5f) / osc.laneCount * DRAWHEIGHT, (float)((DRAWHEIGHT - 1) / osc.laneCount)), 1.0f);
 }
 
 inline uint16_t CalcZeroSize() {					// returns ADC size that corresponds to 0v
@@ -162,17 +162,23 @@ int main(void) {
 				//drawBufferNumber = captureBufferNumber;
 				drawing = true;
 				drawPos = 0;
+
+				//	If in multi-lane mode get lane count from number of displayed channels and calculate vertical offset of channels B and C
+				osc.laneCount = (osc.multiLane && osc.oscDisplay == 0b111 ? 3 : osc.multiLane && osc.oscDisplay > 2 && osc.oscDisplay != 4 ? 2 : 1);
+				calculatedOffsetYB = (osc.laneCount > 1 && osc.oscDisplay & 0b001 ? DRAWHEIGHT / osc.laneCount : 0);
+				calculatedOffsetYC = (osc.laneCount == 2 ? DRAWHEIGHT / 2 : osc.laneCount == 3 ? DRAWHEIGHT * 2 / 3 : 0);
 				CP_ON
 			}
 
 			// Check if drawing and that the sample capture is at or ahead of the draw position
 			if (drawing && (drawBufferNumber != captureBufferNumber || osc.capturedSamples[captureBufferNumber] >= drawPos || osc.noTriggerDraw)) {
 				// Calculate offset between capture and drawing positions to display correct sample
-				uint16_t calculatedOffset = (osc.drawOffset[drawBufferNumber] + drawPos) % DRAWWIDTH;
+				uint16_t calculatedOffsetX = (osc.drawOffset[drawBufferNumber] + drawPos) % DRAWWIDTH;
 
-				uint16_t pixelA = CalcVertOffset(OscBufferA[drawBufferNumber][calculatedOffset]);
-				uint16_t pixelB = CalcVertOffset(OscBufferB[drawBufferNumber][calculatedOffset]);
-				uint16_t pixelC = CalcVertOffset(OscBufferC[drawBufferNumber][calculatedOffset]);
+
+				uint16_t pixelA = CalcVertOffset(OscBufferA[drawBufferNumber][calculatedOffsetX]);
+				uint16_t pixelB = CalcVertOffset(OscBufferB[drawBufferNumber][calculatedOffsetX]) + calculatedOffsetYB;
+				uint16_t pixelC = CalcVertOffset(OscBufferC[drawBufferNumber][calculatedOffsetX]) + calculatedOffsetYC;
 
 				// Starting a new screen: Set previous pixel to current pixel and clear frequency calculations
 				if (drawPos == 0) {
@@ -184,10 +190,10 @@ int main(void) {
 				}
 
 				//	frequency calculation - detect upwards zero crossings
-				if (!osc.freqBelowZero && OscBufferA[drawBufferNumber][calculatedOffset] < CalibZeroPos) {		// first time reading goes below zero
+				if (!osc.freqBelowZero && OscBufferA[drawBufferNumber][calculatedOffsetX] < CalibZeroPos) {		// first time reading goes below zero
 					osc.freqBelowZero = true;
 				}
-				if (osc.freqBelowZero && OscBufferA[drawBufferNumber][calculatedOffset] >= CalibZeroPos) {		// zero crossing
+				if (osc.freqBelowZero && OscBufferA[drawBufferNumber][calculatedOffsetX] >= CalibZeroPos) {		// zero crossing
 					//	second zero crossing - calculate frequency averaged over a number passes to smooth
 					if (osc.freqCrossZero > 0 && drawPos - osc.freqCrossZero > 3) {
 						if (osc.Freq > 0)
@@ -209,21 +215,21 @@ int main(void) {
 
 					if (h < vOffset) {
 						// do not draw
-					} else if (osc.OscDisplay & 1 && h >= AY.first && h <= AY.second) {
+					} else if (osc.oscDisplay & 1 && h >= AY.first && h <= AY.second) {
 						DrawBuffer[osc.DrawBufferNumber][h - vOffset] = LCD_GREEN;
-					} else if (osc.OscDisplay & 2 && h >= BY.first && h <= BY.second) {
+					} else if (osc.oscDisplay & 2 && h >= BY.first && h <= BY.second) {
 						DrawBuffer[osc.DrawBufferNumber][h - vOffset] = LCD_LIGHTBLUE;
-					} else if (osc.OscDisplay & 4 && h >= CY.first && h <= CY.second) {
+					} else if (osc.oscDisplay & 4 && h >= CY.first && h <= CY.second) {
 						DrawBuffer[osc.DrawBufferNumber][h - vOffset] = LCD_ORANGE;
-					} else if (drawPos % 4 == 0 && h == DRAWHEIGHT / 2) {
+					} else if (drawPos % 4 == 0 && (h + (DRAWHEIGHT / (osc.laneCount * 2))) % (DRAWHEIGHT / (osc.laneCount)) == 0) {						// 0v center mark
 						DrawBuffer[osc.DrawBufferNumber][h - vOffset] = LCD_GREY;
 					} else {
 						DrawBuffer[osc.DrawBufferNumber][h - vOffset] = LCD_BLACK;
 					}
 				}
 				if (drawPos < 5) {
-					for (int m = 0; m < osc.voltScale * 2; ++m) {
-						DrawBuffer[osc.DrawBufferNumber][m * DRAWHEIGHT / (osc.voltScale * 2)] = LCD_GREY;
+					for (int m = 0; m < (osc.laneCount == 1 ? osc.voltScale * 2 : (osc.laneCount * 2)); ++m) {
+						DrawBuffer[osc.DrawBufferNumber][m * DRAWHEIGHT / (osc.laneCount == 1 ? osc.voltScale * 2 : (osc.laneCount * 2)) - 11] = LCD_GREY;
 					}
 				}
 
@@ -246,7 +252,7 @@ int main(void) {
 
 				// Draw trigger as a yellow cross
 				if (drawPos == osc.TriggerX + 4) {
-					uint16_t vo = CalcVertOffset(osc.TriggerY);
+					uint16_t vo = CalcVertOffset(osc.TriggerY) + (osc.TriggerTest == &adcB ? calculatedOffsetYB : osc.TriggerTest == &adcC ? calculatedOffsetYC : 0);
 					if (vo > 4 && vo < DRAWHEIGHT - 4) {
 						lcd.DrawLine(osc.TriggerX, vo - 4, osc.TriggerX, vo + 4, LCD_YELLOW);
 						lcd.DrawLine(std::max(osc.TriggerX - 4, 0), vo, osc.TriggerX + 4, vo, LCD_YELLOW);

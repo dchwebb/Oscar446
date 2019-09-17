@@ -89,8 +89,8 @@ void UI::EncoderAction(encoderType type, const int8_t& val) {
 		}
 		break;
 	case ChannelSelect :
-		osc.OscDisplay += val;
-		osc.OscDisplay = osc.OscDisplay == 0 ? 7 : osc.OscDisplay == 8 ? 1 : osc.OscDisplay;
+		osc.oscDisplay += val;
+		osc.oscDisplay = osc.oscDisplay == 0 ? 7 : osc.oscDisplay == 8 ? 1 : osc.oscDisplay;
 		// FIXME - handle triggers
 		DrawUI();
 		break;
@@ -116,6 +116,10 @@ void UI::EncoderAction(encoderType type, const int8_t& val) {
 		break;
 	case FFTChannel :
 		fft.channel = (fft.channel == channelA) ? channelB : (fft.channel == channelB) ? channelC : channelA;
+		DrawUI();
+		break;
+	case MultiLane :
+		osc.multiLane = !osc.multiLane;
 		DrawUI();
 		break;
 	default:
@@ -253,7 +257,7 @@ std::string UI::EncoderLabel(encoderType type) {
 	case HorizScaleFine :
 		return "Zoom Horiz";
 	case ChannelSelect :
-		return "Ch:" + std::string(osc.OscDisplay & 1 ? "A" : "") + std::string(osc.OscDisplay & 2 ? "B" : "") + std::string(osc.OscDisplay & 4 ? "C  " : "  ");
+		return "Ch:" + std::string(osc.oscDisplay & 1 ? "A" : "") + std::string(osc.oscDisplay & 2 ? "B" : "") + std::string(osc.oscDisplay & 4 ? "C  " : "  ");
 	case CalibVertScale :
 		return "Calib Scale";
 	case CalibVertOffset :
@@ -270,6 +274,8 @@ std::string UI::EncoderLabel(encoderType type) {
 		return "Tune: " + std::string(fft.autoTune ? "auto" : "off ");
 	case FFTChannel :
 		return "Channel " + std::string(fft.channel == channelA ? "A" : fft.channel == channelB ? "B" : "C");
+	case MultiLane :
+		return "Lanes: " + std::string(osc.multiLane ? "Y" : "N");
 	default:
 	  return "";
 	}

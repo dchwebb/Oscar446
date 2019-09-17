@@ -22,7 +22,9 @@ public:
 
 	uint8_t DrawBufferNumber = 0;
 	uint8_t CircZeroCrossings = 2, CircZeroCrossCnt = 0;
-	int8_t OscDisplay = 0b111;
+	int8_t oscDisplay = 0b111;
+	bool multiLane = true;
+	uint8_t laneCount = 1;
 
 	volatile uint16_t capturedSamples[2] {0, 0};
 	volatile int16_t drawOffset[2] {0, 0};

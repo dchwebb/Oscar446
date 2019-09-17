@@ -4,7 +4,7 @@
 #include "fontData.h"
 
 #define DRAWWIDTH 320
-#define DRAWHEIGHT 215
+#define DRAWHEIGHT 216
 
 // RGB565 colours
 #define LCD_WHITE		0xFFFF
