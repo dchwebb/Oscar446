@@ -5,14 +5,14 @@ ui.h:27:8:MenuItem::~MenuItem()	16	static
 ui.cpp:3:6:void UI::DrawUI()	224	static
 ui.cpp:38:84:UI::MenuAction(encoderType*, const volatile int8_t&)::<lambda(MenuItem)>	16	static
 ui.cpp:26:6:void UI::MenuAction(encoderType*, const volatile int8_t&)	64	static
-ui.cpp:59:6:void UI::EncoderAction(encoderType, const int8_t&)	80	static
-ui.cpp:131:6:void UI::DrawMenu()	248	static
+ui.cpp:59:6:void UI::EncoderAction(encoderType, const int8_t&)	88	static
+ui.cpp:134:6:void UI::DrawMenu()	248	static
 cmath:103:5:constexpr typename __gnu_cxx::__enable_if<std::__is_integer<_Tp>::__value, double>::__type std::abs(_Tp) [with _Tp = long unsigned int]	24	static
-ui.cpp:157:6:void UI::handleEncoders()	32	static
-ui.cpp:214:6:void UI::ResetMode()	24	static
-ui.cpp:255:13:std::__cxx11::string UI::EncoderLabel(encoderType)	304	static
-ui.cpp:287:13:std::__cxx11::string UI::floatToString(float, bool)	312	static
-ui.cpp:308:13:std::__cxx11::string UI::intToString(uint16_t)	232	static
+ui.cpp:160:6:void UI::handleEncoders()	32	static
+ui.cpp:217:6:void UI::ResetMode()	24	static
+ui.cpp:258:13:std::__cxx11::string UI::EncoderLabel(encoderType)	312	static
+ui.cpp:292:13:std::__cxx11::string UI::floatToString(float, bool)	312	static
+ui.cpp:313:13:std::__cxx11::string UI::intToString(uint16_t)	232	static
 move.h:101:5:constexpr typename std::remove_reference< <template-parameter-1-1> >::type&& std::move(_Tp&&) [with _Tp = std::__cxx11::basic_string<char>&]	16	static
 basic_string.h:5021:5:std::__cxx11::basic_string<_CharT, _Traits, _Alloc> std::operator+(std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&&, std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]	40	static
 basic_string.h:5033:5:std::__cxx11::basic_string<_CharT, _Traits, _Alloc> std::operator+(const _CharT*, std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]	24	static
@@ -26,6 +26,8 @@ stl_iterator.h:825:7:__gnu_cxx::__normal_iterator<_Iterator, _Container>& __gnu_
 stl_iterator.h:793:7:__gnu_cxx::__normal_iterator<_Iterator, _Container>::pointer __gnu_cxx::__normal_iterator<_Iterator, _Container>::operator->() const [with _Iterator = const MenuItem*; _Container = std::vector<MenuItem>]	16	static
 stl_algobase.h:195:5:const _Tp& std::min(const _Tp&, const _Tp&) [with _Tp = int]	16	static
 stl_algobase.h:219:5:const _Tp& std::max(const _Tp&, const _Tp&) [with _Tp = int]	16	static
+stl_algobase.h:219:5:const _Tp& std::max(const _Tp&, const _Tp&) [with _Tp = long int]	16	static
+stl_algobase.h:195:5:const _Tp& std::min(const _Tp&, const _Tp&) [with _Tp = long int]	16	static
 stl_iterator.h:804:7:__gnu_cxx::__normal_iterator<_Iterator, _Container> __gnu_cxx::__normal_iterator<_Iterator, _Container>::operator++(int) [with _Iterator = const MenuItem*; _Container = std::vector<MenuItem>]	24	static
 stl_iterator.h:776:7:__gnu_cxx::__normal_iterator<_Iterator, _Container>::__normal_iterator(const _Iterator&) [with _Iterator = const MenuItem*; _Container = std::vector<MenuItem>]	16	static
 predefined_ops.h:246:5:__gnu_cxx::__ops::_Iter_pred<_Predicate> __gnu_cxx::__ops::__pred_iter(_Predicate) [with _Predicate = UI::MenuAction(encoderType*, const volatile int8_t&)::<lambda(MenuItem)>]	24	static

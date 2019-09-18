@@ -42,16 +42,27 @@ public:
 	std::string EncoderLabel(encoderType type);
 	std::string floatToString(float f, bool smartFormat);
 	std::string intToString(uint16_t v);
+
 	encoderType EncoderModeL, EncoderModeR;
 	bool menuMode = false;
 
-	std::vector<MenuItem> OscMenu{  { 0, "Horiz Coarse", HorizScaleCoarse },{ 1, "Horiz Fine", HorizScaleFine },{ 2, "Vert scale", VoltScale},{ 3, "Trigger Y", Trigger_Y},
-		{ 4, "Trigger Ch", TriggerChannel},{ 5, "Calib Scale", CalibVertScale },{ 5, "Calib Offset", CalibVertOffset },{ 6, "Channel Sel", ChannelSelect }, {7, "Multi-Lane", MultiLane } };
-	std::vector<MenuItem> FftMenu{  { 0, "Horiz Coarse", HorizScaleCoarse },{ 1, "Horiz Fine", HorizScaleFine },{ 2, "AutoTune", FFTAutoTune},{ 3, "Channel", FFTChannel} };
-	std::vector<MenuItem> CircMenu{ { 0, "Vert scale", VoltScale}, { 1, "Channel", FFTChannel},{ 2, "Zero cross", ZeroCross } };
+	std::vector<MenuItem> OscMenu{  { 0, "Horiz scale", HorizScale },
+									{ 1, "Vert scale", VoltScale},
+									{ 2, "Channel Sel", ChannelSelect },
+									{ 3, "Multi-Lane", MultiLane },
+									{ 4, "Trigger Y", Trigger_Y},
+									{ 5, "Trigger X", Trigger_X},
+									{ 6, "Trigger Ch", TriggerChannel},
+									{ 7, "Calib Scale", CalibVertScale },
+									{ 8, "Calib Offset", CalibVertOffset } };
 
+	std::vector<MenuItem> FftMenu{  { 0, "Horiz scale", HorizScale },
+									{ 1, "AutoTune", FFTAutoTune},
+									{ 2, "Channel", FFTChannel} };
+
+	std::vector<MenuItem> CircMenu{ { 0, "Vert scale", VoltScale},
+									{ 1, "Channel", FFTChannel},
+									{ 2, "Zero cross", ZeroCross } };
 
 };
 
-
-//enum encoderType { HorizScaleCoarse, HorizScaleFine, CalibVertScale, CalibVertOffset, VoltScale, FFTAutoTune, FFTChannel };

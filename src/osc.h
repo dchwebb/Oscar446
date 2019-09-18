@@ -12,10 +12,10 @@ public:
 	void setDrawBuffer(uint16_t* buff1, uint16_t* buff2);
 
 	// Oscilloscope settings
-	uint16_t TriggerX = 10;
+	int16_t TriggerX = 10;
 	uint16_t TriggerY = 7000;
 	volatile uint16_t* TriggerTest = &adcA;			// store the currently active trigger channel as a reference for faster interrupt performance
-	encoderType EncModeL = HorizScaleCoarse;
+	encoderType EncModeL = HorizScale;
 	encoderType EncModeR = Trigger_Y;
 	uint16_t SampleTimer = 10;						// Preserves oscilloscope sample timer when switching to other modes
 	int8_t oscDisplay = 0b111;

@@ -67,7 +67,7 @@ void Config::RestoreConfig()
 	configValues cv;
 	memcpy(&cv, (uint32_t*)ADDR_FLASH_SECTOR_7, sizeof(cv));
 
-	if (strcmp(cv.StartMarker, "CFG") == 0 && strcmp(cv.EndMarker, "END") == 0) {
+	if (strcmp(cv.StartMarker, "CFG") == 0 && strcmp(cv.EndMarker, "END") == 0 && cv.Version == 1) {
 		displayMode = cv.gen_displayMode;
 		vCalibOffset = cv.gen_vCalibOffset;
 		vCalibScale = cv.gen_vCalibScale;

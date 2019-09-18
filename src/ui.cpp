@@ -60,7 +60,7 @@ void UI::EncoderAction(encoderType type, const int8_t& val) {
 
 	int16_t adj;
 	switch (type) {
-	case HorizScaleCoarse :
+	case HorizScale :
 		adj = TIM3->ARR + (TIM3->ARR < 100 ? 5 : TIM3->ARR < 500 ? 10 : TIM3->ARR < 1000 ? 50 : 100) * val;
 		if (adj > 10 && adj < 6000) {
 			TIM3->ARR = adj;
@@ -109,7 +109,10 @@ void UI::EncoderAction(encoderType type, const int8_t& val) {
 		DrawUI();
 		break;
 	case Trigger_Y :
-		osc.TriggerY = std::min(std::max(osc.TriggerY + 100 * val, 3800), 16000);
+		osc.TriggerY = std::min(std::max((int32_t)osc.TriggerY + 100 * val, (int32_t)3800), (int32_t)16000);
+		break;
+	case Trigger_X :
+		osc.TriggerX = std::min(std::max(osc.TriggerX + 2 * val, 0), 316);
 		break;
 	case FFTAutoTune :
 		fft.autoTune = !fft.autoTune;
@@ -226,7 +229,7 @@ void UI::ResetMode() {
 		EncoderModeR = fft.EncModeR;
 		break;
 	case Waterfall :
-		EncoderModeL = HorizScaleCoarse;
+		EncoderModeL = HorizScale;
 		EncoderModeR = FFTChannel;
 		break;
 	case Circular :
@@ -254,7 +257,7 @@ void UI::ResetMode() {
 
 std::string UI::EncoderLabel(encoderType type) {
 	switch (type) {
-	case HorizScaleCoarse :
+	case HorizScale :
 		return "Zoom Horiz";
 	case HorizScaleFine :
 		return "Zoom Horiz";
@@ -268,6 +271,8 @@ std::string UI::EncoderLabel(encoderType type) {
 		return "Zoom Vert";
 	case ZeroCross :
 		return "Zero X: " + intToString(osc.CircZeroCrossings);
+	case Trigger_X :
+		return "Trigger X";
 	case Trigger_Y :
 		return "Trigger Y";
 	case TriggerChannel :
@@ -277,7 +282,7 @@ std::string UI::EncoderLabel(encoderType type) {
 	case FFTChannel :
 		return "Channel " + std::string(fft.channel == channelA ? "A" : fft.channel == channelB ? "B" : "C");
 	case MultiLane :
-		return "Lanes: " + std::string(osc.multiLane ? "Y" : "N");
+		return "Lanes: " + std::string(osc.multiLane ? "Yes" : "No");
 	default:
 	  return "";
 	}
