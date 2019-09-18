@@ -1,4 +1,5 @@
 #include "initialisation.h"
+#include "config.h"
 #include "ui.h"
 #include "lcd.h"
 #include "fft.h"
@@ -26,7 +27,7 @@ volatile bool capturing = false, drawing = false, encoderBtnL = false, encoderBt
 volatile uint8_t captureBufferNumber = 0, drawBufferNumber = 0;
 volatile uint16_t ADC_array[ADC_BUFFER_LENGTH];
 
-mode displayMode = Oscilloscope;
+mode displayMode = Fourier;
 
 volatile uint32_t debugCount = 0, coverageTimer = 0, coverageTotal = 0, MIDIDebug = 0;
 
@@ -36,6 +37,8 @@ FFT fft;
 UI ui;
 MIDIHandler midi;
 Osc osc;
+Config cfg;
+
 
 inline uint16_t CalcVertOffset(volatile const uint16_t& vPos) {
 	return std::max(std::min(((((float)(vPos * vCalibScale + vCalibOffset) / (4 * 4096) - 0.5f) * (8.0f / osc.voltScale)) + 0.5f) / osc.laneCount * DRAWHEIGHT, (float)((DRAWHEIGHT - 1) / osc.laneCount)), 1.0f);
@@ -69,14 +72,18 @@ int main(void) {
 	InitSysTick();
 
 	lcd.Init();								// Initialize ILI9341 LCD
-	InitSampleAcquisition();
+	cfg.RestoreConfig();
 	ui.ResetMode();
-
+	InitSampleAcquisition();
 	CalibZeroPos = CalcZeroSize();
+
 
 	while (1) {
 
 		ui.handleEncoders();
+
+		if (cfg.scheduleSave && SysTickVal > cfg.saveBooked + 20000)
+			cfg.SaveConfig();
 
 		if (ui.menuMode) {
 
@@ -108,6 +115,7 @@ int main(void) {
 				osc.circDrawing[drawBufferNumber] = true;
 				osc.circDrawPos[drawBufferNumber] = 0;
 				lcd.DrawString(140, DRAWHEIGHT + 8, ui.floatToString(osc.captureFreq[drawBufferNumber], true) + "Hz  ", &lcd.Font_Small, LCD_WHITE, LCD_BLACK);
+				osc.laneCount = 1;
 				CP_ON
 			}
 

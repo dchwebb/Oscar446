@@ -57,6 +57,7 @@ void UI::MenuAction(encoderType* et, volatile const int8_t& val) {
 }
 
 void UI::EncoderAction(encoderType type, const int8_t& val) {
+
 	int16_t adj;
 	switch (type) {
 	case HorizScaleCoarse :
@@ -157,12 +158,11 @@ void UI::handleEncoders() {
 	// encoders count in fours with the zero point set to 100
 	if (std::abs((int16_t)32000 - L_ENC_CNT) > 3) {
 		int8_t v = L_ENC_CNT > 32000 ? 1 : -1;
-		if (menuMode)
-			MenuAction(&EncoderModeL, v);
-		else
-			EncoderAction(EncoderModeL, v);
+		if (menuMode)	MenuAction(&EncoderModeL, v);
+		else			EncoderAction(EncoderModeL, v);
 
 		L_ENC_CNT -= L_ENC_CNT > 32000 ? 4 : -4;
+		cfg.ScheduleSave();
 	}
 
 	if (std::abs((int16_t)32000 - R_ENC_CNT) > 3) {
@@ -171,7 +171,7 @@ void UI::handleEncoders() {
 		else			EncoderAction(EncoderModeR, v);
 
 		R_ENC_CNT -= R_ENC_CNT > 32000 ? 4 : -4;
-
+		cfg.ScheduleSave();
 	}
 
 	if ((encoderBtnL || encoderBtnR) && menuMode) {
@@ -203,6 +203,7 @@ void UI::handleEncoders() {
 			displayMode = Oscilloscope;
 			break;
 		}
+		cfg.ScheduleSave();
 		ResetMode();
 	}
 
@@ -229,8 +230,8 @@ void UI::ResetMode() {
 		EncoderModeR = FFTChannel;
 		break;
 	case Circular :
-		EncoderModeL = FFTChannel;
-		EncoderModeR = VoltScale;
+		EncoderModeL = osc.CircEncModeL;
+		EncoderModeR = osc.CircEncModeR;
 		break;
 	case MIDI :
 		break;
@@ -239,6 +240,7 @@ void UI::ResetMode() {
 
 	capturing = drawing = false;
 	bufferSamples = capturePos = oldAdc = 0;
+	osc.circDrawing[0] = osc.circDrawing[1] = false;
 	fft.dataAvailable[0] = fft.dataAvailable[1] = false;
 	fft.samples = displayMode == Fourier ? FFTSAMPLES : WATERFALLSAMPLES;
 

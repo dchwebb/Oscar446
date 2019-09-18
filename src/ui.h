@@ -4,6 +4,7 @@
 #include "lcd.h"
 #include "fft.h"
 #include "osc.h"
+#include "config.h"
 
 extern void ResetMode();
 
@@ -12,6 +13,7 @@ class Osc;
 extern FFT fft;
 extern LCD lcd;
 extern Osc osc;
+extern Config cfg;
 
 //extern volatile int8_t voltScale;
 extern volatile int16_t vCalibOffset;
