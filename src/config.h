@@ -2,6 +2,7 @@
 
 #include "initialisation.h"
 #include "osc.h"
+#include "fft.h"
 #include "../drivers/stm32f4xx_flash.h"
 
 #define ADDR_FLASH_SECTOR_7		((uint32_t)0x08060000) // Base address of Sector 7, 128 Kbytes
@@ -38,6 +39,12 @@ struct configValues {
 	int8_t osc_oscDisplay;
 	bool osc_multiLane;
 	int8_t osc_voltScale;
+
+	// FFT settings
+	bool fft_autoTune;
+	oscChannel fft_channel;
+	encoderType fft_EncModeL;
+	encoderType fft_EncModeR;
 
 	char EndMarker[4] = "END";			// End Marker
 };

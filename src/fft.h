@@ -23,21 +23,24 @@ extern uint16_t DrawBuffer[2][(DRAWHEIGHT + 1) * DRAWBUFFERWIDTH];
 
 class FFT {
 public:
-	float FFTBuffer[2][FFTSAMPLES];
-	uint16_t samples = FFTSAMPLES;
-	bool autoTune = true;
-	std::array<uint16_t, FFTHARMONICCOLOURS> harmonic;
-	bool dataAvailable[2] {false, false};
-	oscChannel channel = channelA;
-	float SineLUT[LUTSIZE];
-	encoderType EncModeL = FFTChannel;
-	encoderType EncModeR = FFTAutoTune;
-
 	FFT();
 	void runFFT(volatile float candSin[]);
 	void waterfall(volatile float candSin[]);
 	float harmonicFreq(uint16_t harmonicNumber);
 	void sampleCapture(bool clearBuffer);
+
+	// FFT and Waterfall Settings
+	bool autoTune = true;								// if true will attempt to adjust sample capture time to get sample capture to align to multiple of cycle period
+	oscChannel channel = channelA;
+	encoderType EncModeL = FFTChannel;
+	encoderType EncModeR = FFTAutoTune;
+
+	// FFT working variables
+	float FFTBuffer[2][FFTSAMPLES];						// holds raw samples captured in interrupt for FFT analysis
+	volatile uint16_t samples = FFTSAMPLES;				// specifies number of samples depending on whether in FFT or Waterfall mode
+	std::array<uint16_t, FFTHARMONICCOLOURS> harmonic;	// holds harmonics found in FFT
+	volatile bool dataAvailable[2] {false, false};		// stores which sample buffers contain data
+	float SineLUT[LUTSIZE];
 
 private:
 	float candCos[FFTSAMPLES];

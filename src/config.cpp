@@ -52,6 +52,11 @@ void Config::SetConfig(configValues &cv) {
 	cv.osc_oscDisplay = osc.oscDisplay;
 	cv.osc_multiLane = osc.multiLane;
 	cv.osc_voltScale = osc.voltScale;
+
+	cv.fft_autoTune = fft.autoTune;
+	cv.fft_channel = fft.channel;
+	cv.fft_EncModeL = fft.EncModeL;
+	cv.fft_EncModeR = fft.EncModeR;
 }
 
 
@@ -76,6 +81,11 @@ void Config::RestoreConfig()
 		osc.oscDisplay = cv.osc_oscDisplay;
 		osc.multiLane = cv.osc_multiLane;
 		osc.voltScale = cv.osc_voltScale;
+
+		fft.autoTune = cv.fft_autoTune;
+		fft.channel = cv.fft_channel;
+		fft.EncModeL = cv.fft_EncModeL;
+		fft.EncModeR = cv.fft_EncModeR;
 	}
 }
 

@@ -3,7 +3,7 @@
 #include "initialisation.h"
 #include "lcd.h"
 
-extern volatile uint16_t adcA, adcB;
+extern volatile uint16_t adcA;
 
 // Class to store settings and working variables for oscilloscope and circular mode
 
@@ -27,7 +27,7 @@ public:
 	encoderType CircEncModeR = ZeroCross;
 	uint8_t CircZeroCrossings = 2;					// number of zero crossings captured for each 'frame'
 
-	// Oscilloscope temporary variables
+	// Oscilloscope working variables
 	uint8_t DrawBufferNumber = 0;
 	uint16_t noTriggerDraw = 0;						// set to true if no trigger signal but a draw buffer is available
 	uint8_t laneCount = 1;							// holds current number of lanes to display based on number of visible channels and multi lane setting
@@ -37,7 +37,7 @@ public:
 	volatile uint16_t capturedSamples[2] {0, 0};
 	volatile int16_t drawOffset[2] {0, 0};
 
-	// Circular mode temporary variables
+	// Circular mode working variables
 	volatile uint16_t zeroCrossings[2] {0, 0};		// Used in circular mode
 	uint8_t CircZeroCrossCnt = 0;					// used by interrupt to count zero crossings
 	bool circDrawing[2] {false, false};

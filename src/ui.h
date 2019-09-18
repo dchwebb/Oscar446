@@ -10,6 +10,7 @@ extern void ResetMode();
 
 class FFT;		// forward reference to handle circular dependency
 class Osc;
+class Config;
 extern FFT fft;
 extern LCD lcd;
 extern Osc osc;
