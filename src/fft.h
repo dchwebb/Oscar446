@@ -46,7 +46,6 @@ private:
 	float candCos[FFTSAMPLES];
 	float freqFund = 0.0f;
 
-	std::string CurrentHertz;
 	uint32_t maxHyp = 0;
 	uint16_t newARR = 0;
 	uint16_t FFTErrors = 0;
@@ -58,7 +57,6 @@ private:
 	void calcFFT(volatile float candSin[]);
 	void displayFFT(volatile float candSin[]);
 	void displayWaterfall(volatile float candSin[]);
-	void FFTInfo(void);
 
 };
 

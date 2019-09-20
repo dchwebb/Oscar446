@@ -73,8 +73,8 @@ int main(void) {
 
 	lcd.Init();								// Initialize ILI9341 LCD
 	cfg.RestoreConfig();
-	ui.ResetMode();
 	InitSampleAcquisition();
+	ui.ResetMode();
 	CalibZeroPos = CalcZeroSize();
 
 
@@ -82,7 +82,7 @@ int main(void) {
 
 		ui.handleEncoders();
 
-		if (cfg.scheduleSave && SysTickVal > cfg.saveBooked + 20000)
+		if (cfg.scheduleSave && SysTickVal > cfg.saveBooked + 120000)			// this equates to around 45 seconds between saves
 			cfg.SaveConfig();
 
 		if (ui.menuMode) {
@@ -103,6 +103,128 @@ int main(void) {
 				}
 				else
 					fft.waterfall(fft.FFTBuffer[drawBufferNumber]);
+			}
+
+		} else if (displayMode == Oscilloscope) {
+
+			if (!drawing && (capturing || osc.noTriggerDraw)) {								// check if we should start drawing
+				drawBufferNumber = osc.noTriggerDraw ? !(bool)captureBufferNumber : captureBufferNumber;
+				drawing = true;
+				drawPos = 0;
+
+				//	If in multi-lane mode get lane count from number of displayed channels and calculate vertical offset of channels B and C
+				osc.laneCount = (osc.multiLane && osc.oscDisplay == 0b111 ? 3 : osc.multiLane && osc.oscDisplay > 2 && osc.oscDisplay != 4 ? 2 : 1);
+				calculatedOffsetYB = (osc.laneCount > 1 && osc.oscDisplay & 0b001 ? DRAWHEIGHT / osc.laneCount : 0);
+				calculatedOffsetYC = (osc.laneCount == 2 ? DRAWHEIGHT / 2 : osc.laneCount == 3 ? DRAWHEIGHT * 2 / 3 : 0);
+				CP_ON
+			}
+
+			// Check if drawing and that the sample capture is at or ahead of the draw position
+			if (drawing && (drawBufferNumber != captureBufferNumber || osc.capturedSamples[captureBufferNumber] >= drawPos || osc.noTriggerDraw)) {
+				// Calculate offset between capture and drawing positions to display correct sample
+				uint16_t calculatedOffsetX = (osc.drawOffset[drawBufferNumber] + drawPos) % DRAWWIDTH;
+
+
+				uint16_t pixelA = CalcVertOffset(OscBufferA[drawBufferNumber][calculatedOffsetX]);
+				uint16_t pixelB = CalcVertOffset(OscBufferB[drawBufferNumber][calculatedOffsetX]) + calculatedOffsetYB;
+				if (pixelB > 210U) {
+					volatile int susp = 1;
+					pixelB++;
+				}
+				uint16_t pixelC = CalcVertOffset(OscBufferC[drawBufferNumber][calculatedOffsetX]) + calculatedOffsetYC;
+
+				// Starting a new screen: Set previous pixel to current pixel and clear frequency calculations
+				if (drawPos == 0) {
+					prevPixelA = pixelA;
+					prevPixelB = pixelB;
+					prevPixelC = pixelC;
+					osc.freqBelowZero = false;
+					osc.freqCrossZero = 0;
+				}
+
+				//	frequency calculation - detect upwards zero crossings
+				if (!osc.freqBelowZero && OscBufferA[drawBufferNumber][calculatedOffsetX] < CalibZeroPos) {		// first time reading goes below zero
+					osc.freqBelowZero = true;
+				}
+				if (osc.freqBelowZero && OscBufferA[drawBufferNumber][calculatedOffsetX] >= CalibZeroPos) {		// zero crossing
+					//	second zero crossing - calculate frequency averaged over a number passes to smooth
+					if (osc.freqCrossZero > 0 && drawPos - osc.freqCrossZero > 3) {
+						if (osc.Freq > 0)
+							osc.Freq = (3 * osc.Freq + FreqFromPos(drawPos - osc.freqCrossZero)) / 4;
+						else
+							osc.Freq = FreqFromPos(drawPos - osc.freqCrossZero);
+					}
+					osc.freqCrossZero = drawPos;
+					osc.freqBelowZero = false;
+				}
+
+				// create draw buffer
+				std::pair<uint16_t, uint16_t> AY = std::minmax(pixelA, (uint16_t)prevPixelA);
+				std::pair<uint16_t, uint16_t> BY = std::minmax(pixelB, (uint16_t)prevPixelB);
+				std::pair<uint16_t, uint16_t> CY = std::minmax(pixelC, (uint16_t)prevPixelC);
+
+				uint8_t vOffset = (drawPos < 27 || drawPos > 250) ? 11 : 0;		// offset draw area so as not to overwrite voltage and freq labels
+				for (uint8_t h = 0; h <= DRAWHEIGHT - (drawPos < 27 ? 12 : 0); ++h) {
+
+					if (h < vOffset) {
+						// do not draw
+					} else if (osc.oscDisplay & 1 && h >= AY.first && h <= AY.second) {
+						DrawBuffer[osc.DrawBufferNumber][h - vOffset] = LCD_GREEN;
+					} else if (osc.oscDisplay & 2 && h >= BY.first && h <= BY.second) {
+						DrawBuffer[osc.DrawBufferNumber][h - vOffset] = LCD_LIGHTBLUE;
+					} else if (osc.oscDisplay & 4 && h >= CY.first && h <= CY.second) {
+						DrawBuffer[osc.DrawBufferNumber][h - vOffset] = LCD_ORANGE;
+					} else if (drawPos % 4 == 0 && (h + (DRAWHEIGHT / (osc.laneCount * 2))) % (DRAWHEIGHT / (osc.laneCount)) == 0) {						// 0v center mark
+						DrawBuffer[osc.DrawBufferNumber][h - vOffset] = LCD_GREY;
+					} else {
+						DrawBuffer[osc.DrawBufferNumber][h - vOffset] = LCD_BLACK;
+					}
+				}
+				if (drawPos < 5) {
+					for (int m = 0; m < (osc.laneCount == 1 ? osc.voltScale * 2 : (osc.laneCount * 2)); ++m) {
+						DrawBuffer[osc.DrawBufferNumber][m * DRAWHEIGHT / (osc.laneCount == 1 ? osc.voltScale * 2 : (osc.laneCount * 2)) - 11] = LCD_GREY;
+					}
+				}
+
+				lcd.PatternFill(drawPos, vOffset, drawPos, DRAWHEIGHT - (drawPos < 27 ? 12 : 0), DrawBuffer[osc.DrawBufferNumber]);
+				osc.DrawBufferNumber = osc.DrawBufferNumber == 0 ? 1 : 0;
+
+				// Store previous sample so next sample can be drawn as a line from old to new
+				prevPixelA = pixelA;
+				prevPixelB = pixelB;
+				prevPixelC = pixelC;
+
+				drawPos ++;
+				if (drawPos == DRAWWIDTH){
+					drawing = false;
+					osc.noTriggerDraw = false;
+					CP_CAP
+				}
+
+				// Draw trigger as a yellow cross
+				if (drawPos == osc.TriggerX + 4) {
+					uint16_t vo = CalcVertOffset(osc.TriggerY) + (osc.TriggerTest == &adcB ? calculatedOffsetYB : osc.TriggerTest == &adcC ? calculatedOffsetYC : 0);
+					if (vo > 4 && vo < DRAWHEIGHT - 4) {
+						lcd.DrawLine(osc.TriggerX, vo - 4, osc.TriggerX, vo + 4, LCD_YELLOW);
+						lcd.DrawLine(std::max(osc.TriggerX - 4, 0), vo, osc.TriggerX + 4, vo, LCD_YELLOW);
+					}
+				}
+
+				if (drawPos == 1) {
+					// Write voltage
+					lcd.DrawString(0, 1, " " + ui.intToString(osc.voltScale) + "v ", &lcd.Font_Small, LCD_GREY, LCD_BLACK);
+					lcd.DrawString(0, DRAWHEIGHT - 10, "-" + ui.intToString(osc.voltScale) + "v ", &lcd.Font_Small, LCD_GREY, LCD_BLACK);
+
+					// Write frequency
+					if (osc.noTriggerDraw) {
+						lcd.DrawString(250, 1, "No Trigger " , &lcd.Font_Small, LCD_WHITE, LCD_BLACK);
+					} else {
+						lcd.DrawString(250, 1, osc.Freq != 0 ? ui.floatToString(osc.Freq, false) + "Hz    " : "          ", &lcd.Font_Small, LCD_WHITE, LCD_BLACK);
+						osc.Freq = 0;
+					}
+
+				}
+
 			}
 
 		} else if (displayMode == Circular) {
@@ -162,128 +284,6 @@ int main(void) {
 				}
 
 			}
-
-		} else if (displayMode == Oscilloscope) {
-
-			if (!drawing && (capturing || osc.noTriggerDraw)) {								// check if we should start drawing
-				drawBufferNumber = osc.noTriggerDraw ? !(bool)captureBufferNumber : captureBufferNumber;
-				//drawBufferNumber = captureBufferNumber;
-				drawing = true;
-				drawPos = 0;
-
-				//	If in multi-lane mode get lane count from number of displayed channels and calculate vertical offset of channels B and C
-				osc.laneCount = (osc.multiLane && osc.oscDisplay == 0b111 ? 3 : osc.multiLane && osc.oscDisplay > 2 && osc.oscDisplay != 4 ? 2 : 1);
-				calculatedOffsetYB = (osc.laneCount > 1 && osc.oscDisplay & 0b001 ? DRAWHEIGHT / osc.laneCount : 0);
-				calculatedOffsetYC = (osc.laneCount == 2 ? DRAWHEIGHT / 2 : osc.laneCount == 3 ? DRAWHEIGHT * 2 / 3 : 0);
-				CP_ON
-			}
-
-			// Check if drawing and that the sample capture is at or ahead of the draw position
-			if (drawing && (drawBufferNumber != captureBufferNumber || osc.capturedSamples[captureBufferNumber] >= drawPos || osc.noTriggerDraw)) {
-				// Calculate offset between capture and drawing positions to display correct sample
-				uint16_t calculatedOffsetX = (osc.drawOffset[drawBufferNumber] + drawPos) % DRAWWIDTH;
-
-
-				uint16_t pixelA = CalcVertOffset(OscBufferA[drawBufferNumber][calculatedOffsetX]);
-				uint16_t pixelB = CalcVertOffset(OscBufferB[drawBufferNumber][calculatedOffsetX]) + calculatedOffsetYB;
-				uint16_t pixelC = CalcVertOffset(OscBufferC[drawBufferNumber][calculatedOffsetX]) + calculatedOffsetYC;
-
-				// Starting a new screen: Set previous pixel to current pixel and clear frequency calculations
-				if (drawPos == 0) {
-					prevPixelA = pixelA;
-					prevPixelB = pixelB;
-					prevPixelC = pixelC;
-					osc.freqBelowZero = false;
-					osc.freqCrossZero = 0;
-				}
-
-				//	frequency calculation - detect upwards zero crossings
-				if (!osc.freqBelowZero && OscBufferA[drawBufferNumber][calculatedOffsetX] < CalibZeroPos) {		// first time reading goes below zero
-					osc.freqBelowZero = true;
-				}
-				if (osc.freqBelowZero && OscBufferA[drawBufferNumber][calculatedOffsetX] >= CalibZeroPos) {		// zero crossing
-					//	second zero crossing - calculate frequency averaged over a number passes to smooth
-					if (osc.freqCrossZero > 0 && drawPos - osc.freqCrossZero > 3) {
-						if (osc.Freq > 0)
-							osc.Freq = (3 * osc.Freq + FreqFromPos(drawPos - osc.freqCrossZero)) / 4;
-						else
-							osc.Freq = FreqFromPos(drawPos - osc.freqCrossZero);
-					}
-					osc.freqCrossZero = drawPos;
-					osc.freqBelowZero = false;
-				}
-
-				// create draw buffer
-				std::pair<uint16_t, uint16_t> AY = std::minmax(pixelA, (uint16_t)prevPixelA);
-				std::pair<uint16_t, uint16_t> BY = std::minmax(pixelB, (uint16_t)prevPixelB);
-				std::pair<uint16_t, uint16_t> CY = std::minmax(pixelC, (uint16_t)prevPixelC);
-
-				uint8_t vOffset = (drawPos < 27 || drawPos > 250) ? 11 : 0;		// offset draw area so as not to overwrite voltage and freq labels
-				for (uint8_t h = 0; h <= DRAWHEIGHT - (drawPos < 27 ? 12 : 0); ++h) {
-
-					if (h < vOffset) {
-						// do not draw
-					} else if (osc.oscDisplay & 1 && h >= AY.first && h <= AY.second) {
-						DrawBuffer[osc.DrawBufferNumber][h - vOffset] = LCD_GREEN;
-					} else if (osc.oscDisplay & 2 && h >= BY.first && h <= BY.second) {
-						DrawBuffer[osc.DrawBufferNumber][h - vOffset] = LCD_LIGHTBLUE;
-					} else if (osc.oscDisplay & 4 && h >= CY.first && h <= CY.second) {
-						DrawBuffer[osc.DrawBufferNumber][h - vOffset] = LCD_ORANGE;
-					} else if (drawPos % 4 == 0 && (h + (DRAWHEIGHT / (osc.laneCount * 2))) % (DRAWHEIGHT / (osc.laneCount)) == 0) {						// 0v center mark
-						DrawBuffer[osc.DrawBufferNumber][h - vOffset] = LCD_GREY;
-					} else {
-						DrawBuffer[osc.DrawBufferNumber][h - vOffset] = LCD_BLACK;
-					}
-				}
-				if (drawPos < 5) {
-					for (int m = 0; m < (osc.laneCount == 1 ? osc.voltScale * 2 : (osc.laneCount * 2)); ++m) {
-						DrawBuffer[osc.DrawBufferNumber][m * DRAWHEIGHT / (osc.laneCount == 1 ? osc.voltScale * 2 : (osc.laneCount * 2)) - 11] = LCD_GREY;
-					}
-				}
-
-				//debugCount = DMA1_Stream5->NDTR;
-
-				lcd.PatternFill(drawPos, vOffset, drawPos, DRAWHEIGHT - (drawPos < 27 ? 12 : 0), DrawBuffer[osc.DrawBufferNumber]);
-				osc.DrawBufferNumber = osc.DrawBufferNumber == 0 ? 1 : 0;
-
-				// Store previous sample so next sample can be drawn as a line from old to new
-				prevPixelA = pixelA;
-				prevPixelB = pixelB;
-				prevPixelC = pixelC;
-
-				drawPos ++;
-				if (drawPos == DRAWWIDTH){
-					drawing = false;
-					osc.noTriggerDraw = false;
-					CP_CAP
-				}
-
-				// Draw trigger as a yellow cross
-				if (drawPos == osc.TriggerX + 4) {
-					uint16_t vo = CalcVertOffset(osc.TriggerY) + (osc.TriggerTest == &adcB ? calculatedOffsetYB : osc.TriggerTest == &adcC ? calculatedOffsetYC : 0);
-					if (vo > 4 && vo < DRAWHEIGHT - 4) {
-						lcd.DrawLine(osc.TriggerX, vo - 4, osc.TriggerX, vo + 4, LCD_YELLOW);
-						lcd.DrawLine(std::max(osc.TriggerX - 4, 0), vo, osc.TriggerX + 4, vo, LCD_YELLOW);
-					}
-				}
-
-				if (drawPos == 1) {
-					// Write voltage
-					lcd.DrawString(0, 1, " " + ui.intToString(osc.voltScale) + "v ", &lcd.Font_Small, LCD_GREY, LCD_BLACK);
-					lcd.DrawString(0, DRAWHEIGHT - 10, "-" + ui.intToString(osc.voltScale) + "v ", &lcd.Font_Small, LCD_GREY, LCD_BLACK);
-
-					// Write frequency
-					if (osc.noTriggerDraw) {
-						lcd.DrawString(250, 1, "No Trigger " , &lcd.Font_Small, LCD_WHITE, LCD_BLACK);
-					} else {
-						lcd.DrawString(250, 1, osc.Freq != 0 ? ui.floatToString(osc.Freq, false) + "Hz    " : "          ", &lcd.Font_Small, LCD_WHITE, LCD_BLACK);
-						osc.Freq = 0;
-					}
-
-				}
-
-			}
-
 		}
 	}
 }

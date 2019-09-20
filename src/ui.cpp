@@ -159,7 +159,7 @@ void UI::DrawMenu() {
 
 void UI::handleEncoders() {
 	// encoders count in fours with the zero point set to 100
-	if (std::abs((int16_t)32000 - L_ENC_CNT) > 3) {
+	if (std::abs((int16_t)32000 - (int16_t)L_ENC_CNT) > 3) {
 		int8_t v = L_ENC_CNT > 32000 ? 1 : -1;
 		if (menuMode)	MenuAction(&EncoderModeL, v);
 		else			EncoderAction(EncoderModeL, v);
@@ -168,7 +168,7 @@ void UI::handleEncoders() {
 		cfg.ScheduleSave();
 	}
 
-	if (std::abs((int16_t)32000 - R_ENC_CNT) > 3) {
+	if (std::abs((int16_t)32000 - (int16_t)R_ENC_CNT) > 3) {
 		int8_t v = R_ENC_CNT > 32000 ? 1 : -1;
 		if (menuMode)	MenuAction(&EncoderModeR, v);
 		else			EncoderAction(EncoderModeR, v);

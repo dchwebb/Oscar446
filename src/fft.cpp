@@ -227,7 +227,9 @@ void FFT::calcFFT(volatile float candSin[]) {
 		node = node * 2;
 	}
 
-	FFTInfo();		// display frequency spread
+	// display frequency spread
+	lcd.DrawString(115, DRAWHEIGHT + 8, ui.floatToString(harmonicFreq(1), true) + " - " + ui.floatToString(harmonicFreq(319), true) + "Hz  ", &lcd.Font_Small, LCD_WHITE, LCD_BLACK);
+
 }
 
 
@@ -349,11 +351,4 @@ void FFT::sampleCapture(bool clearBuffer) {
 
 }
 
-void FFT::FFTInfo(void) {
 
-	std::string s = ui.floatToString(harmonicFreq(1), true) + " - " + ui.floatToString(harmonicFreq(319), true) + "Hz  ";
-	if (s != CurrentHertz) {
-		lcd.DrawString(115, DRAWHEIGHT + 8, s, &lcd.Font_Small, LCD_WHITE, LCD_BLACK);
-		CurrentHertz = s;
-	}
-}

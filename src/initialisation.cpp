@@ -134,9 +134,9 @@ void InitADC(void) {
 
 	// Set to 56 cycles (0b11) sampling speed (SMPR2 Left shift speed 3 x ADC_INx up to input 9; use SMPR1 from 0 for ADC_IN10+)
 	// 000: 3 cycles; 001: 15 cycles; 010: 28 cycles; 011: 56 cycles; 100: 84 cycles; 101: 112 cycles; 110: 144 cycles; 111: 480 cycles
-	ADC1->SMPR1 |= 0b110 << 9;						// Set speed of IN13
-	ADC1->SMPR2 |= 0b110 << 15;						// Set speed of IN5
-	ADC1->SMPR2 |= 0b110 << 0;						// Set speed of IN0
+	ADC1->SMPR1 |= 0b101 << 9;						// Set speed of IN13
+	ADC1->SMPR2 |= 0b101 << 15;						// Set speed of IN5
+	ADC1->SMPR2 |= 0b101 << 0;						// Set speed of IN0
 
 	ADC1->CR2 |= ADC_CR2_EOCS;						// The EOC bit is set at the end of each regular conversion. Overrun detection is enabled.
 	ADC1->CR2 |= ADC_CR2_EXTEN_0;					// ADC hardware trigger 00: Trigger detection disabled; 01: Trigger detection on the rising edge; 10: Trigger detection on the falling edge; 11: Trigger detection on both the rising and falling edges
