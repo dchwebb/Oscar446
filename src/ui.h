@@ -42,6 +42,7 @@ public:
 	std::string EncoderLabel(encoderType type);
 	std::string floatToString(float f, bool smartFormat);
 	std::string intToString(uint16_t v);
+	uint16_t DarkenColour(const uint16_t& colour, uint16_t amount);
 
 	encoderType EncoderModeL, EncoderModeR;
 	bool menuMode = false;
@@ -58,10 +59,10 @@ public:
 
 	std::vector<MenuItem> FftMenu{  { 0, "Horiz scale", HorizScale },
 									{ 1, "AutoTune", FFTAutoTune},
-									{ 2, "Channel", FFTChannel} };
+									{ 2, "Channel", ActiveChannel} };
 
 	std::vector<MenuItem> CircMenu{ { 0, "Vert scale", VoltScale},
-									{ 1, "Channel", FFTChannel},
+									{ 1, "Channel", ActiveChannel},
 									{ 2, "Zero cross", ZeroCross } };
 
 };

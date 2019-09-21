@@ -32,8 +32,10 @@ public:
 	// FFT and Waterfall Settings
 	bool autoTune = true;								// if true will attempt to adjust sample capture time to get sample capture to align to multiple of cycle period
 	oscChannel channel = channelA;
-	encoderType EncModeL = FFTChannel;
-	encoderType EncModeR = FFTAutoTune;
+	encoderType EncModeL = FFTAutoTune;
+	encoderType EncModeR = ActiveChannel;
+	encoderType wfallEncModeL = HorizScale;
+	encoderType wfallEncModeR = ActiveChannel;
 
 	// FFT working variables
 	float FFTBuffer[2][FFTSAMPLES];						// holds raw samples captured in interrupt for FFT analysis

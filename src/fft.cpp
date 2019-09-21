@@ -98,7 +98,8 @@ void FFT::displayWaterfall(volatile float candSin[]) {
 		// work forwards through the buffers so the oldest buffer is drawn first at the front, newer buffers move forward
 		for (uint16_t w = 0; w < WATERFALLBUFFERS; ++w) {
 
-			uint16_t greenShade = (63 - w * 2) << 5;
+			//uint16_t greenShade = (63 - w * 2) << 5;
+			uint16_t greenShade = ui.DarkenColour(fft.channel == channelA ? LCD_GREEN : fft.channel == channelB ? LCD_BLUE : LCD_ORANGE,  w * 2);
 
 			int16_t buff = (waterfallBuffer + w) % WATERFALLBUFFERS;
 			int xOffset = w * 2 + 3;

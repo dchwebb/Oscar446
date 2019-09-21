@@ -16,15 +16,15 @@ public:
 	uint16_t TriggerY = 7000;
 	volatile uint16_t* TriggerTest = &adcA;			// store the currently active trigger channel as a reference for faster interrupt performance
 	encoderType EncModeL = HorizScale;
-	encoderType EncModeR = Trigger_Y;
+	encoderType EncModeR = ChannelSelect;
 	uint16_t SampleTimer = 10;						// Preserves oscilloscope sample timer when switching to other modes
 	int8_t oscDisplay = 0b111;
 	bool multiLane = true;
 	int8_t voltScale = 8;
 
 	// Circular Mode settings
-	encoderType CircEncModeL = FFTChannel;
-	encoderType CircEncModeR = ZeroCross;
+	encoderType circEncModeL = ZeroCross;
+	encoderType circEncModeR = ActiveChannel;
 	uint8_t CircZeroCrossings = 2;					// number of zero crossings captured for each 'frame'
 
 	// Oscilloscope working variables

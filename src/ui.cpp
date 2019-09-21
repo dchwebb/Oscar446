@@ -46,8 +46,8 @@ void UI::MenuAction(encoderType* et, volatile const int8_t& val) {
 		osc.EncModeL = EncoderModeL;
 		osc.EncModeR = EncoderModeR;
 	} else if (displayMode == Circular) {
-		osc.CircEncModeL = EncoderModeL;
-		osc.CircEncModeR = EncoderModeR;
+		osc.circEncModeL = EncoderModeL;
+		osc.circEncModeR = EncoderModeR;
 	} else if (displayMode == Fourier) {
 		fft.EncModeL = EncoderModeL;
 		fft.EncModeR = EncoderModeR;
@@ -118,7 +118,7 @@ void UI::EncoderAction(encoderType type, const int8_t& val) {
 		fft.autoTune = !fft.autoTune;
 		DrawUI();
 		break;
-	case FFTChannel :
+	case ActiveChannel :
 		fft.channel = (fft.channel == channelA) ? channelB : (fft.channel == channelB) ? channelC : channelA;
 		DrawUI();
 		break;
@@ -229,12 +229,12 @@ void UI::ResetMode() {
 		EncoderModeR = fft.EncModeR;
 		break;
 	case Waterfall :
-		EncoderModeL = HorizScale;
-		EncoderModeR = FFTChannel;
+		EncoderModeL = fft.wfallEncModeL;
+		EncoderModeR = fft.wfallEncModeR;
 		break;
 	case Circular :
-		EncoderModeL = osc.CircEncModeL;
-		EncoderModeR = osc.CircEncModeR;
+		EncoderModeL = osc.circEncModeL;
+		EncoderModeR = osc.circEncModeR;
 		break;
 	case MIDI :
 		break;
@@ -279,7 +279,7 @@ std::string UI::EncoderLabel(encoderType type) {
 		return std::string(osc.TriggerTest == &adcA ? "Trigger A " : osc.TriggerTest == &adcB ? "Trigger B " : osc.TriggerTest == &adcC ? "Trigger C " : "No Trigger");
 	case FFTAutoTune :
 		return "Tune: " + std::string(fft.autoTune ? "auto" : "off ");
-	case FFTChannel :
+	case ActiveChannel :
 		return "Channel " + std::string(fft.channel == channelA ? "A" : fft.channel == channelB ? "B" : "C");
 	case MultiLane :
 		return "Lanes: " + std::string(osc.multiLane ? "Yes" : "No");
@@ -314,4 +314,15 @@ std::string UI::intToString(uint16_t v) {
 	std::stringstream ss;
 	ss << v;
 	return ss.str();
+}
+
+//	Takes an RGB colour and darkens by the specified amount
+uint16_t UI::DarkenColour(const uint16_t& colour, uint16_t amount) {
+	uint16_t r = (colour >> 11) << 1;
+	uint16_t g = (colour >> 5) & 0b111111;
+	uint16_t b = (colour & 0b11111) << 1;
+	r -= std::min(amount, r);
+	g -= std::min(amount, g);
+	b -= std::min(amount, b);;
+	return ((r >> 1) << 11) + (g << 5) + (b >> 1);
 }

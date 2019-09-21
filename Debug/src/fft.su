@@ -1,7 +1,7 @@
 fft.cpp:4:1:FFT::FFT()	32	static
-fft.cpp:145:6:void FFT::calcFFT(volatile float*)	200	static
+fft.cpp:146:6:void FFT::calcFFT(volatile float*)	200	static
 fft.cpp:342:6:void FFT::sampleCapture(bool)	0	static
-fft.cpp:40:6:void FFT::displayWaterfall(volatile float*)	96	static
+fft.cpp:40:6:void FFT::displayWaterfall(volatile float*)	104	static
 fft.cpp:28:6:void FFT::waterfall(volatile float*)	24	static
 fft.cpp:238:6:void FFT::displayFFT(volatile float*)	272	static
 fft.cpp:18:6:void FFT::runFFT(volatile float*)	24	static
