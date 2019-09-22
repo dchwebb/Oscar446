@@ -42,6 +42,7 @@ struct configValues {
 
 	// FFT settings
 	bool fft_autoTune;
+	bool fft_traceOverlay;
 	oscChannel fft_channel;
 	encoderType fft_EncModeL;
 	encoderType fft_EncModeR;

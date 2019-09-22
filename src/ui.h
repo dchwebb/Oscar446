@@ -59,7 +59,8 @@ public:
 
 	std::vector<MenuItem> FftMenu{  { 0, "Horiz scale", HorizScale },
 									{ 1, "AutoTune", FFTAutoTune},
-									{ 2, "Channel", ActiveChannel} };
+									{ 2, "Trace overlay", TraceOverlay},
+									{ 3, "Multi-Lane", MultiLane } };
 
 	std::vector<MenuItem> CircMenu{ { 0, "Vert scale", VoltScale},
 									{ 1, "Channel", ActiveChannel},

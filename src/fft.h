@@ -21,6 +21,9 @@ extern volatile uint32_t debugCount, coverageTotal, coverageTimer;
 extern volatile uint8_t captureBufferNumber, drawBufferNumber;
 extern uint16_t DrawBuffer[2][(DRAWHEIGHT + 1) * DRAWBUFFERWIDTH];
 
+extern volatile uint16_t OscBufferA[2][DRAWWIDTH];
+extern volatile uint16_t adcA;
+
 class FFT {
 public:
 	FFT();
@@ -31,6 +34,7 @@ public:
 
 	// FFT and Waterfall Settings
 	bool autoTune = true;								// if true will attempt to adjust sample capture time to get sample capture to align to multiple of cycle period
+	bool traceOverlay = true;							// Display trace overlaid on FFT display
 	oscChannel channel = channelA;
 	encoderType EncModeL = FFTAutoTune;
 	encoderType EncModeR = ActiveChannel;

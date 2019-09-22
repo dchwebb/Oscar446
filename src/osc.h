@@ -4,12 +4,15 @@
 #include "lcd.h"
 
 extern volatile uint16_t adcA;
+extern volatile float vCalibScale;
+extern volatile int16_t vCalibOffset;
 
 // Class to store settings and working variables for oscilloscope and circular mode
 
 class Osc {
 public:
 	void setDrawBuffer(uint16_t* buff1, uint16_t* buff2);
+	uint16_t CalcVertOffset(volatile const uint16_t& vPos);
 
 	// Oscilloscope settings
 	int16_t TriggerX = 10;
@@ -17,7 +20,7 @@ public:
 	volatile uint16_t* TriggerTest = &adcA;			// store the currently active trigger channel as a reference for faster interrupt performance
 	encoderType EncModeL = HorizScale;
 	encoderType EncModeR = ChannelSelect;
-	uint16_t SampleTimer = 10;						// Preserves oscilloscope sample timer when switching to other modes
+	uint16_t sampleTimer = 10;						// Preserves oscilloscope sample timer when switching to other modes
 	int8_t oscDisplay = 0b111;
 	bool multiLane = true;
 	int8_t voltScale = 8;
@@ -36,6 +39,7 @@ public:
 	uint16_t freqCrossZero;
 	volatile uint16_t capturedSamples[2] {0, 0};
 	volatile int16_t drawOffset[2] {0, 0};
+	uint16_t prevPixelA = 0, prevPixelB = 0, prevPixelC = 0;
 
 	// Circular mode working variables
 	volatile uint16_t zeroCrossings[2] {0, 0};		// Used in circular mode

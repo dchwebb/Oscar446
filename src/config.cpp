@@ -10,7 +10,7 @@ void Config::ScheduleSave() {
 void Config::SaveConfig() {
 	scheduleSave = false;
 
-	uint32_t address = ADDR_FLASH_SECTOR_7;		// Store data in Sector 10 (second last sector in F405 - sector 11 appears to be write only) to allow maximum space for program code
+	uint32_t address = ADDR_FLASH_SECTOR_7;		// Store data in Sector 7 last sector in F446 to allow maximum space for program code
 	FLASH_Status flash_status = FLASH_COMPLETE;
 
 	configValues cv;
@@ -26,7 +26,6 @@ void Config::SaveConfig() {
 	flash_status = FLASH_EraseSector(FLASH_Sector_7, VoltageRange_3);
 
 	// If erase worked, program the Flash memory with the config settings byte by byte
-	uint16_t cfgsize = sizeof(cv);
 	if (flash_status == FLASH_COMPLETE) {
 		for (unsigned int f = 0; f < sizeof(cv); f++) {
 			char byte = *((char*)(&cv) + f);
@@ -48,12 +47,13 @@ void Config::SetConfig(configValues &cv) {
 	cv.osc_TriggerTest = (osc.TriggerTest == &adcA ? 1 : osc.TriggerTest == &adcB ? 2 : osc.TriggerTest == &adcC ? 3 : 0);
 	cv.osc_EncModeL = osc.EncModeL;
 	cv.osc_EncModeR = osc.EncModeR;
-	cv.osc_SampleTimer = osc.SampleTimer;
+	cv.osc_SampleTimer = osc.sampleTimer;
 	cv.osc_oscDisplay = osc.oscDisplay;
 	cv.osc_multiLane = osc.multiLane;
 	cv.osc_voltScale = osc.voltScale;
 
 	cv.fft_autoTune = fft.autoTune;
+	cv.fft_traceOverlay = fft.traceOverlay;
 	cv.fft_channel = fft.channel;
 	cv.fft_EncModeL = fft.EncModeL;
 	cv.fft_EncModeR = fft.EncModeR;
@@ -77,12 +77,13 @@ void Config::RestoreConfig()
 		osc.TriggerTest = (cv.osc_TriggerTest == 1 ? &adcA : cv.osc_TriggerTest == 2 ? &adcB : cv.osc_TriggerTest == 3 ? &adcC : nullptr);
 		osc.EncModeL = cv.osc_EncModeL;
 		osc.EncModeR = cv.osc_EncModeR;
-		osc.SampleTimer = cv.osc_SampleTimer;
+		osc.sampleTimer = cv.osc_SampleTimer;
 		osc.oscDisplay = cv.osc_oscDisplay;
 		osc.multiLane = cv.osc_multiLane;
 		osc.voltScale = cv.osc_voltScale;
 
 		fft.autoTune = cv.fft_autoTune;
+		fft.traceOverlay = cv.fft_traceOverlay;
 		fft.channel = cv.fft_channel;
 		fft.EncModeL = cv.fft_EncModeL;
 		fft.EncModeR = cv.fft_EncModeR;

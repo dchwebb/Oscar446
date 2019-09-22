@@ -99,7 +99,7 @@ void FFT::displayWaterfall(volatile float candSin[]) {
 		for (uint16_t w = 0; w < WATERFALLBUFFERS; ++w) {
 
 			//uint16_t greenShade = (63 - w * 2) << 5;
-			uint16_t greenShade = ui.DarkenColour(fft.channel == channelA ? LCD_GREEN : fft.channel == channelB ? LCD_BLUE : LCD_ORANGE,  w * 2);
+			uint16_t colourShade = ui.DarkenColour(fft.channel == channelA ? LCD_GREEN : fft.channel == channelB ? LCD_BLUE : LCD_ORANGE,  w * 2);
 
 			int16_t buff = (waterfallBuffer + w) % WATERFALLBUFFERS;
 			int xOffset = w * 2 + 3;
@@ -120,7 +120,7 @@ void FFT::displayWaterfall(volatile float candSin[]) {
 					if (vPos > h1 && vPos > h0) {
 						DrawBuffer[FFTDrawBufferNumber][buffPos] = LCD_BLACK;
 					} else {
-						DrawBuffer[FFTDrawBufferNumber][buffPos] = greenShade;
+						DrawBuffer[FFTDrawBufferNumber][buffPos] = colourShade;
 					}
 					vPos--;
 				}
@@ -141,13 +141,33 @@ void FFT::displayWaterfall(volatile float candSin[]) {
 	}
 }
 
-
 // Carry out Fast fourier transform
 void FFT::calcFFT(volatile float candSin[]) {
 
 	uint16_t bitReverse = 0;
 	uint16_t FFTbits = log2(samples);
 
+	// Populate draw buffer to overlay sample view
+	if (traceOverlay) {
+		osc.laneCount = 2;
+
+		// attempt to find if there is a trigger point
+		uint16_t s = 0;
+		uint16_t t = 4 * (2047 - candSin[0]);
+		for (uint16_t p = 0; p < samples - DRAWWIDTH; p++) {
+			if (t > osc.TriggerY && (4 * (2047 - candSin[p])) < osc.TriggerY) {
+				s = p;
+				break;
+			}
+			t = 4 * (2047 - candSin[p]);
+		}
+
+		for ( uint16_t p = 0; p <= DRAWWIDTH ; p++) {
+			adcA = 4 * (2047 - candSin[s + p]);
+			OscBufferA[0][p] = osc.CalcVertOffset(adcA) + (DRAWHEIGHT / 4);
+		}
+		osc.prevPixelA = OscBufferA[0][0];
+	}
 
 	// Bit reverse samples
 	for (int i = 0; i < samples; ++i) {
@@ -240,6 +260,7 @@ void FFT::displayFFT(volatile float candSin[]) {
 	harmonic.fill(0);
 	int16_t badFFT = 0, currHarmonic = -1, smearHarmonic = 0;
 	maxHyp = 0;
+	uint16_t overlayColour = ui.DarkenColour(fft.channel == channelA ? LCD_GREEN : fft.channel == channelB ? LCD_BLUE : LCD_ORANGE,  40);
 
 	// Cycle through each column in the display and draw
 	for (uint16_t i = 1; i <= DRAWWIDTH; i++) {
@@ -272,6 +293,8 @@ void FFT::displayFFT(volatile float candSin[]) {
 		for (h = 0; h <= DRAWHEIGHT; ++h) {
 			uint16_t buffPos = h * DRAWBUFFERWIDTH + ((i - 1) % DRAWBUFFERWIDTH);
 
+			std::pair<uint16_t, uint16_t> AY = std::minmax((uint16_t)OscBufferA[0][i], osc.prevPixelA);
+
 			// depending on harmonic height draw either harmonic or black, using different colours to indicate main harmonics
 			if (h >= top) {
 				badFFT++;					// every so often the FFT fails with extremely large numbers in all positions - just abort the draw and resample
@@ -281,10 +304,14 @@ void FFT::displayFFT(volatile float candSin[]) {
 					return;
 				}
 				DrawBuffer[FFTDrawBufferNumber][buffPos] = harmColour;
+			} else if (traceOverlay && h >= AY.first && h <= AY.second) {
+				DrawBuffer[FFTDrawBufferNumber][buffPos] = overlayColour;
 			} else {
 				DrawBuffer[FFTDrawBufferNumber][buffPos] = LCD_BLACK;
 			}
 		}
+
+		osc.prevPixelA = OscBufferA[0][i];
 
 		// check if ready to draw next buffer
 		if ((i % DRAWBUFFERWIDTH) == 0) {

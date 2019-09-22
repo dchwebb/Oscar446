@@ -62,8 +62,9 @@ void UI::EncoderAction(encoderType type, const int8_t& val) {
 	switch (type) {
 	case HorizScale :
 		adj = TIM3->ARR + (TIM3->ARR < 100 ? 5 : TIM3->ARR < 500 ? 10 : TIM3->ARR < 1000 ? 50 : 100) * val;
-		if (adj > 10 && adj < 6000) {
+		if (adj > MINSAMPLETIMER && adj < 6000) {
 			TIM3->ARR = adj;
+			if (displayMode == Oscilloscope)		osc.sampleTimer = adj;
 			DrawUI();
 		}
 		break;
@@ -116,6 +117,10 @@ void UI::EncoderAction(encoderType type, const int8_t& val) {
 		break;
 	case FFTAutoTune :
 		fft.autoTune = !fft.autoTune;
+		DrawUI();
+		break;
+	case TraceOverlay :
+		fft.traceOverlay = !fft.traceOverlay;
 		DrawUI();
 		break;
 	case ActiveChannel :
@@ -195,14 +200,14 @@ void UI::handleEncoders() {
 	if (encoderBtnL) {
 		switch (displayMode) {
 		case Oscilloscope :
-			osc.SampleTimer = TIM3->ARR;
+			osc.sampleTimer = TIM3->ARR;
 			displayMode = Fourier;
 			break;
 		case Fourier :		displayMode = Waterfall;		break;
 		case Waterfall :	displayMode = Circular;			break;
 		case Circular :		displayMode = MIDI;				break;
 		case MIDI :
-			TIM3->ARR = osc.SampleTimer;
+			TIM3->ARR = osc.sampleTimer;
 			displayMode = Oscilloscope;
 			break;
 		}
@@ -239,13 +244,16 @@ void UI::ResetMode() {
 	case MIDI :
 		break;
 	}
-	ui.DrawUI();
 
 	capturing = drawing = false;
 	bufferSamples = capturePos = oldAdc = 0;
 	osc.circDrawing[0] = osc.circDrawing[1] = false;
 	fft.dataAvailable[0] = fft.dataAvailable[1] = false;
 	fft.samples = displayMode == Fourier ? FFTSAMPLES : WATERFALLSAMPLES;
+	if (displayMode == Oscilloscope && osc.sampleTimer > MINSAMPLETIMER)
+		TIM3->ARR = osc.sampleTimer;
+
+	ui.DrawUI();
 
 	if (displayMode == MIDI) {
 		UART4->CR1 |= USART_CR1_UE;			// Enable MIDI capture
@@ -279,10 +287,12 @@ std::string UI::EncoderLabel(encoderType type) {
 		return std::string(osc.TriggerTest == &adcA ? "Trigger A " : osc.TriggerTest == &adcB ? "Trigger B " : osc.TriggerTest == &adcC ? "Trigger C " : "No Trigger");
 	case FFTAutoTune :
 		return "Tune: " + std::string(fft.autoTune ? "auto" : "off ");
+	case TraceOverlay :
+		return "Trace: " + std::string(fft.traceOverlay ? "on " : "off ");
 	case ActiveChannel :
 		return "Channel " + std::string(fft.channel == channelA ? "A" : fft.channel == channelB ? "B" : "C");
 	case MultiLane :
-		return "Lanes: " + std::string(osc.multiLane ? "Yes" : "No");
+		return "Lanes: " + std::string(osc.multiLane ? "Yes" : "No ");
 	default:
 	  return "";
 	}

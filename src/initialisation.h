@@ -89,13 +89,16 @@
 #define ADC_BUFFER_LENGTH 12
 #define DRAWBUFFERWIDTH 80
 #define CIRCLENGTH 160
+#define MINSAMPLETIMER 10
 
 extern volatile uint16_t ADC_array[];
 extern volatile uint32_t SysTickVal;
 
-enum encoderType { HorizScale, HorizScaleFine, CalibVertScale, CalibVertOffset, VoltScale, TriggerChannel, Trigger_X, Trigger_Y, FFTAutoTune, ActiveChannel, ChannelSelect, ZeroCross, MultiLane };
+enum encoderType { HorizScale, HorizScaleFine, CalibVertScale, CalibVertOffset, VoltScale, TriggerChannel, Trigger_X, Trigger_Y, FFTAutoTune, ActiveChannel, ChannelSelect, ZeroCross, MultiLane, TraceOverlay };
 enum mode { Oscilloscope, Fourier, Waterfall, Circular, MIDI };
 enum oscChannel {channelA, channelB, channelC, channelNone};
+
+
 
 void SystemClock_Config(void);
 void InitSysTick();

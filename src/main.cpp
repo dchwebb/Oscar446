@@ -22,12 +22,12 @@ volatile uint16_t CalibZeroPos = 9985;
 
 uint16_t DrawBuffer[2][(DRAWHEIGHT + 1) * DRAWBUFFERWIDTH];
 volatile uint16_t OscBufferA[2][DRAWWIDTH], OscBufferB[2][DRAWWIDTH], OscBufferC[2][DRAWWIDTH];
-volatile uint16_t prevPixelA = 0, prevPixelB = 0, prevPixelC = 0, adcA, adcB, adcC, oldAdc, capturePos = 0, drawPos = 0, bufferSamples = 0, calculatedOffsetYB = 0, calculatedOffsetYC = 0;
+volatile uint16_t adcA, adcB, adcC, oldAdc, capturePos = 0, drawPos = 0, bufferSamples = 0, calculatedOffsetYB = 0, calculatedOffsetYC = 0;
 volatile bool capturing = false, drawing = false, encoderBtnL = false, encoderBtnR = false;
 volatile uint8_t captureBufferNumber = 0, drawBufferNumber = 0;
 volatile uint16_t ADC_array[ADC_BUFFER_LENGTH];
 
-mode displayMode = Fourier;
+mode displayMode = Oscilloscope;
 
 volatile uint32_t debugCount = 0, coverageTimer = 0, coverageTotal = 0, MIDIDebug = 0;
 
@@ -40,9 +40,7 @@ Osc osc;
 Config cfg;
 
 
-inline uint16_t CalcVertOffset(volatile const uint16_t& vPos) {
-	return std::max(std::min(((((float)(vPos * vCalibScale + vCalibOffset) / (4 * 4096) - 0.5f) * (8.0f / osc.voltScale)) + 0.5f) / osc.laneCount * DRAWHEIGHT, (float)((DRAWHEIGHT - 1) / osc.laneCount)), 1.0f);
-}
+
 
 inline uint16_t CalcZeroSize() {					// returns ADC size that corresponds to 0v
 	return (8192 - vCalibOffset) / vCalibScale;
@@ -82,7 +80,7 @@ int main(void) {
 
 		ui.handleEncoders();
 
-		if (cfg.scheduleSave && SysTickVal > cfg.saveBooked + 120000)			// this equates to around 45 seconds between saves
+		if (cfg.scheduleSave && SysTickVal > cfg.saveBooked + 170000)			// this equates to around 60 seconds between saves
 			cfg.SaveConfig();
 
 		if (ui.menuMode) {
@@ -125,19 +123,15 @@ int main(void) {
 				uint16_t calculatedOffsetX = (osc.drawOffset[drawBufferNumber] + drawPos) % DRAWWIDTH;
 
 
-				uint16_t pixelA = CalcVertOffset(OscBufferA[drawBufferNumber][calculatedOffsetX]);
-				uint16_t pixelB = CalcVertOffset(OscBufferB[drawBufferNumber][calculatedOffsetX]) + calculatedOffsetYB;
-				if (pixelB > 210U) {
-					volatile int susp = 1;
-					pixelB++;
-				}
-				uint16_t pixelC = CalcVertOffset(OscBufferC[drawBufferNumber][calculatedOffsetX]) + calculatedOffsetYC;
+				uint16_t pixelA = osc.CalcVertOffset(OscBufferA[drawBufferNumber][calculatedOffsetX]);
+				uint16_t pixelB = osc.CalcVertOffset(OscBufferB[drawBufferNumber][calculatedOffsetX]) + calculatedOffsetYB;
+				uint16_t pixelC = osc.CalcVertOffset(OscBufferC[drawBufferNumber][calculatedOffsetX]) + calculatedOffsetYC;
 
 				// Starting a new screen: Set previous pixel to current pixel and clear frequency calculations
 				if (drawPos == 0) {
-					prevPixelA = pixelA;
-					prevPixelB = pixelB;
-					prevPixelC = pixelC;
+					osc.prevPixelA = pixelA;
+					osc.prevPixelB = pixelB;
+					osc.prevPixelC = pixelC;
 					osc.freqBelowZero = false;
 					osc.freqCrossZero = 0;
 				}
@@ -159,9 +153,9 @@ int main(void) {
 				}
 
 				// create draw buffer
-				std::pair<uint16_t, uint16_t> AY = std::minmax(pixelA, (uint16_t)prevPixelA);
-				std::pair<uint16_t, uint16_t> BY = std::minmax(pixelB, (uint16_t)prevPixelB);
-				std::pair<uint16_t, uint16_t> CY = std::minmax(pixelC, (uint16_t)prevPixelC);
+				std::pair<uint16_t, uint16_t> AY = std::minmax(pixelA, (uint16_t)osc.prevPixelA);
+				std::pair<uint16_t, uint16_t> BY = std::minmax(pixelB, (uint16_t)osc.prevPixelB);
+				std::pair<uint16_t, uint16_t> CY = std::minmax(pixelC, (uint16_t)osc.prevPixelC);
 
 				uint8_t vOffset = (drawPos < 27 || drawPos > 250) ? 11 : 0;		// offset draw area so as not to overwrite voltage and freq labels
 				for (uint8_t h = 0; h <= DRAWHEIGHT - (drawPos < 27 ? 12 : 0); ++h) {
@@ -190,9 +184,9 @@ int main(void) {
 				osc.DrawBufferNumber = osc.DrawBufferNumber == 0 ? 1 : 0;
 
 				// Store previous sample so next sample can be drawn as a line from old to new
-				prevPixelA = pixelA;
-				prevPixelB = pixelB;
-				prevPixelC = pixelC;
+				osc.prevPixelA = pixelA;
+				osc.prevPixelB = pixelB;
+				osc.prevPixelC = pixelC;
 
 				drawPos ++;
 				if (drawPos == DRAWWIDTH){
@@ -203,7 +197,7 @@ int main(void) {
 
 				// Draw trigger as a yellow cross
 				if (drawPos == osc.TriggerX + 4) {
-					uint16_t vo = CalcVertOffset(osc.TriggerY) + (osc.TriggerTest == &adcB ? calculatedOffsetYB : osc.TriggerTest == &adcC ? calculatedOffsetYC : 0);
+					uint16_t vo = osc.CalcVertOffset(osc.TriggerY) + (osc.TriggerTest == &adcB ? calculatedOffsetYB : osc.TriggerTest == &adcC ? calculatedOffsetYC : 0);
 					if (vo > 4 && vo < DRAWHEIGHT - 4) {
 						lcd.DrawLine(osc.TriggerX, vo - 4, osc.TriggerX, vo + 4, LCD_YELLOW);
 						lcd.DrawLine(std::max(osc.TriggerX - 4, 0), vo, osc.TriggerX + 4, vo, LCD_YELLOW);
@@ -245,20 +239,21 @@ int main(void) {
 			for (drawBufferNumber = 0; drawBufferNumber < 2; drawBufferNumber++) {
 				if (osc.circDrawing[drawBufferNumber]) {
 
-					// draw a line getting fainter as it goes from current position backwards
+					// each of these loops will draw a trail from one draw buffer from current position (pos) up to end of previous draw position: osc.circDrawPos[drawBufferNumber]
 					for (int pos = std::max((int)osc.circDrawPos[drawBufferNumber] - CIRCLENGTH, 0); pos <= osc.circDrawPos[drawBufferNumber] && pos <= osc.zeroCrossings[drawBufferNumber]; pos++) {
 
-						int slopeOffset = 0;			// make negative to slope top left to bottom right and positive for opposite slope
-						int b = (int)std::round(pos * LUTSIZE / osc.zeroCrossings[drawBufferNumber] + LUTSIZE / 4 + slopeOffset) % LUTSIZE;
+						int b = (int)std::round(pos * LUTSIZE / osc.zeroCrossings[drawBufferNumber] + LUTSIZE / 4) % LUTSIZE;
 						int x = fft.SineLUT[b] * 70 + 160;
 
-
-						int pixelA = CalcVertOffset(OscBufferA[drawBufferNumber][pos]);
+						// draw a line getting fainter as it goes from current position backwards
+						int pixelA = osc.CalcVertOffset(OscBufferA[drawBufferNumber][pos]);
 						if (pos == std::max((int)osc.circDrawPos[drawBufferNumber] - CIRCLENGTH, 0)) {
-							prevPixelA = pixelA;
+							osc.prevPixelA = pixelA;
 						}
-						uint16_t greenShade = (63 - (osc.circDrawPos[drawBufferNumber] - pos) / 3) << 5;
-						uint16_t blueShade = (31 - (osc.circDrawPos[drawBufferNumber] - pos) / 6);
+						//uint16_t greenShade = (63 - (osc.circDrawPos[drawBufferNumber] - pos) / 3) << 5;
+						uint16_t greenShade = ui.DarkenColour(fft.channel == channelA ? LCD_GREEN : fft.channel == channelB ? LCD_BLUE : LCD_ORANGE, (osc.circDrawPos[drawBufferNumber] - pos) / 3);
+						//uint16_t blueShade = (31 - (osc.circDrawPos[drawBufferNumber] - pos) / 6);
+						uint16_t blueShade = ui.DarkenColour(LCD_GREY, (osc.circDrawPos[drawBufferNumber] - pos) / 8);
 
 						if (pos < (int)osc.circDrawPos[drawBufferNumber] - CIRCLENGTH + 2) {
 							greenShade = LCD_BLACK;
@@ -266,13 +261,13 @@ int main(void) {
 						}
 
 						// Draw 'circle'
-						lcd.DrawLine(x, pixelA, x, prevPixelA, greenShade);
+						lcd.DrawLine(x, pixelA, x, osc.prevPixelA, greenShade);
 
 						// Draw normal osc
 						uint16_t oscPos = pos * DRAWWIDTH / osc.zeroCrossings[drawBufferNumber];
-						lcd.DrawLine(oscPos, pixelA, oscPos, prevPixelA, blueShade);
+						lcd.DrawLine(oscPos, pixelA, oscPos, osc.prevPixelA, blueShade);
 
-						prevPixelA = pixelA;
+						osc.prevPixelA = pixelA;
 					}
 
 					osc.circDrawPos[drawBufferNumber] ++;
