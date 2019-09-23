@@ -70,7 +70,11 @@ int main(void) {
 	InitSysTick();
 
 	lcd.Init();								// Initialize ILI9341 LCD
-	cfg.RestoreConfig();
+
+	// check if resetting config by holding left encoder button while resetting
+	if (L_BTN_GPIO->IDR & L_BTN_NO(GPIO_IDR_IDR_,))
+		cfg.RestoreConfig();
+
 	InitSampleAcquisition();
 	ui.ResetMode();
 	CalibZeroPos = CalcZeroSize();

@@ -183,7 +183,7 @@ void InitSampleAcquisition() {
 //	Setup Timer 9 to count clock cycles for coverage profiling
 void InitCoverageTimer() {
 	RCC->APB2ENR |= RCC_APB2ENR_TIM9EN;				// Enable Timer
-	TIM9->PSC = 10;
+	TIM9->PSC = 100;
 	TIM9->ARR = 65535;
 
 	TIM9->DIER |= TIM_DIER_UIE;						// DMA/interrupt enable register
@@ -199,16 +199,6 @@ void InitDebounceTimer() {
 	TIM5->ARR = 65535;
 }
 
-/*// Setup Timer 7 to schedule config saves
-void InitConfigTimer() {
-	RCC->APB1ENR |= RCC_APB1ENR_TIM7EN;
-	TIM7->PSC = 65535;
-	TIM7->ARR = 65535;
-
-	TIM7->DIER |= TIM_DIER_UIE;						// DMA/interrupt enable register
-	NVIC_EnableIRQ(TIM7_IRQn);
-	NVIC_SetPriority(TIM7_IRQn, 2);					// Lower is higher priority
-}*/
 
 void InitEncoders() {
 	// L Encoder: button on PA10, up/down on PB6 and PB7; R Encoder: Button on PB13, up/down on PC6 and PC7

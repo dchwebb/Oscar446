@@ -1,1 +1,1 @@
-osc.cpp:3:10:uint16_t Osc::CalcVertOffset(const volatile uint16_t&)	24	static
+osc.cpp:3:10:uint16_t Osc::CalcVertOffset(const volatile uint16_t&)	16	static

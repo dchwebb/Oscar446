@@ -191,13 +191,16 @@ void UI::handleEncoders() {
 
 	// Menu mode
 	if (encoderBtnR && (displayMode == Oscilloscope || displayMode == Circular || displayMode == Fourier)) {
+		encoderBtnR = false;
 		menuMode = true;
 		lcd.ScreenFill(LCD_BLACK);
 		DrawMenu();
+		return;
 	}
 
-	// Change display mode
-	if (encoderBtnL) {
+	// Change display mode (note recheck menuMode as interrupts can alter this mid-routine)
+	if (encoderBtnL && !menuMode) {
+		encoderBtnL = false;
 		switch (displayMode) {
 		case Oscilloscope :
 			osc.sampleTimer = TIM3->ARR;
@@ -213,10 +216,9 @@ void UI::handleEncoders() {
 		}
 		cfg.ScheduleSave();
 		ResetMode();
+		return;
 	}
 
-	encoderBtnL = false;
-	encoderBtnR = false;
 }
 
 void UI::ResetMode() {
@@ -228,6 +230,8 @@ void UI::ResetMode() {
 	case Oscilloscope :
 		EncoderModeL = osc.EncModeL;
 		EncoderModeR = osc.EncModeR;
+		if (osc.sampleTimer > MINSAMPLETIMER)
+			TIM3->ARR = osc.sampleTimer;
 		break;
 	case Fourier :
 		EncoderModeL = fft.EncModeL;
@@ -250,8 +254,7 @@ void UI::ResetMode() {
 	osc.circDrawing[0] = osc.circDrawing[1] = false;
 	fft.dataAvailable[0] = fft.dataAvailable[1] = false;
 	fft.samples = displayMode == Fourier ? FFTSAMPLES : WATERFALLSAMPLES;
-	if (displayMode == Oscilloscope && osc.sampleTimer > MINSAMPLETIMER)
-		TIM3->ARR = osc.sampleTimer;
+
 
 	ui.DrawUI();
 
