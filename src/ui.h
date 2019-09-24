@@ -16,11 +16,10 @@ extern LCD lcd;
 extern Osc osc;
 extern Config cfg;
 
-//extern volatile int8_t voltScale;
 extern volatile int16_t vCalibOffset;
 extern volatile float vCalibScale;
-extern volatile uint16_t oldAdc, capturePos, bufferSamples, adcA, adcB, adcC;
-extern volatile bool encoderBtnL, encoderBtnR, capturing, drawing, menuMode;
+extern volatile uint16_t oldAdc, capturePos, adcA, adcB, adcC;
+extern volatile bool drawing;
 extern volatile uint32_t debugCount, coverageTotal, coverageTimer;
 extern mode displayMode;
 
@@ -45,7 +44,7 @@ public:
 	uint16_t DarkenColour(const uint16_t& colour, uint16_t amount);
 
 	encoderType EncoderModeL, EncoderModeR;
-	bool menuMode = false;
+	bool menuMode = false, encoderBtnL = false, encoderBtnR = false;
 
 	std::vector<MenuItem> OscMenu{  { 0, "Horiz scale", HorizScale },
 									{ 1, "Vert scale", VoltScale},

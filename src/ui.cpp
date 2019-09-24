@@ -249,8 +249,8 @@ void UI::ResetMode() {
 		break;
 	}
 
-	capturing = drawing = false;
-	bufferSamples = capturePos = oldAdc = 0;
+	fft.capturing = osc.capturing = drawing = false;
+	osc.bufferSamples = capturePos = oldAdc = 0;
 	osc.circDrawing[0] = osc.circDrawing[1] = false;
 	fft.dataAvailable[0] = fft.dataAvailable[1] = false;
 	fft.samples = displayMode == Fourier ? FFTSAMPLES : WATERFALLSAMPLES;

@@ -15,37 +15,38 @@ FFT::FFT() {
 }
 
 // Carry out Fast fourier transform
-void FFT::runFFT(volatile float candSin[]) {
+void FFT::Run() {
 
-	CP_CAP
-	CP_ON
-	calcFFT(candSin);
-	displayFFT(candSin);
+	sampleCapture(false);									// checks if ready to start new capture
 
+	if (dataAvailable[0] || dataAvailable[1]) {
+
+		drawBufferNumber = dataAvailable[0] ? 0 : 1;		// select correct draw buffer based on whether buffer 0 or 1 contains data
+
+		CP_CAP
+		CP_ON
+		calcFFT(FFTBuffer[drawBufferNumber]);
+
+		if (displayMode == Fourier)
+			displayFFT(FFTBuffer[drawBufferNumber]);
+		else
+			displayWaterfall(FFTBuffer[drawBufferNumber]);
+	}
 }
 
-// Carry out Fast fourier transform
-void FFT::waterfall(volatile float candSin[]) {
 
-	CP_CAP
-	CP_ON
-	calcFFT(candSin);
-	displayWaterfall(candSin);
-}
-
-#define SMOOTHSIZE 4
 
 
 // Carry out Fast fourier transform
 void FFT::displayWaterfall(volatile float candSin[]) {
 
 	uint16_t badFFT = 0, top, mult, div, sPos = 0, hypPos = 0;
-	uint16_t smoothVals[SMOOTHSIZE];
+	uint16_t smoothVals[WATERFALLSMOOTH];
 
 	// Cycle through each column in the display and draw
 	for (uint16_t i = 1; i < WATERFALLSIZE; i++) {
 		// calculate hypotenuse ahead of draw position to apply smoothing
-		while (hypPos < i + SMOOTHSIZE && hypPos < WATERFALLSIZE) {
+		while (hypPos < i + WATERFALLSMOOTH && hypPos < WATERFALLSIZE) {
 			top = WATERFALLDRAWHEIGHT * (1 - (std::hypot(candSin[hypPos], candCos[hypPos]) / (128 * WATERFALLSAMPLES)));
 
 			if (top < 30) {
@@ -66,9 +67,9 @@ void FFT::displayWaterfall(volatile float candSin[]) {
 
 		// apply smoothing - uses binary weighting around center point eg: (1w(i-2) + 2w(i-1) + 4w(i) + 2w(i+1) + 1w(i+2)) / (1+2+4+2+1)
 		top = div = 0;
-		for (int16_t x = i - SMOOTHSIZE; x <= i + SMOOTHSIZE; x++) {
+		for (int16_t x = i - WATERFALLSMOOTH; x <= i + WATERFALLSMOOTH; x++) {
 			if (x >= 0 && x < WATERFALLSIZE) {
-				mult = 1 << (SMOOTHSIZE - std::abs(i - x));
+				mult = 1 << (WATERFALLSMOOTH - std::abs(i - x));
 				div += mult;
 				top += mult * drawWaterfall[waterfallBuffer][x];
 			}
@@ -77,9 +78,9 @@ void FFT::displayWaterfall(volatile float candSin[]) {
 
 		// store smoothed values back to waterfallBuffer once all smoothing calculations have been done on that value
 		smoothVals[sPos] = top;
-		sPos = (sPos + 1) % SMOOTHSIZE;
-		if (i >= SMOOTHSIZE) {
-			drawWaterfall[waterfallBuffer][i - SMOOTHSIZE] = smoothVals[sPos];
+		sPos = (sPos + 1) % WATERFALLSMOOTH;
+		if (i >= WATERFALLSMOOTH) {
+			drawWaterfall[waterfallBuffer][i - WATERFALLSMOOTH] = smoothVals[sPos];
 		}
 
 	}
@@ -164,9 +165,9 @@ void FFT::calcFFT(volatile float candSin[]) {
 
 		for ( uint16_t p = 0; p <= DRAWWIDTH ; p++) {
 			adcA = 4 * (2047 - candSin[s + p]);
-			OscBufferA[0][p] = osc.CalcVertOffset(adcA) + (DRAWHEIGHT / 4);
+			osc.OscBufferA[0][p] = osc.CalcVertOffset(adcA) + (DRAWHEIGHT / 4);
 		}
-		osc.prevPixelA = OscBufferA[0][0];
+		osc.prevPixelA = osc.OscBufferA[0][0];
 	}
 
 	// Bit reverse samples
@@ -294,7 +295,7 @@ void FFT::displayFFT(volatile float candSin[]) {
 		for (h = 0; h <= DRAWHEIGHT; ++h) {
 			uint16_t buffPos = h * DRAWBUFFERWIDTH + ((i - 1) % DRAWBUFFERWIDTH);
 
-			std::pair<uint16_t, uint16_t> AY = std::minmax((uint16_t)OscBufferA[0][i], osc.prevPixelA);
+			std::pair<uint16_t, uint16_t> AY = std::minmax((uint16_t)osc.OscBufferA[0][i], osc.prevPixelA);
 
 			// depending on harmonic height draw either harmonic or black, using different colours to indicate main harmonics
 			if (h >= top) {
@@ -313,7 +314,7 @@ void FFT::displayFFT(volatile float candSin[]) {
 			}
 		}
 
-		osc.prevPixelA = OscBufferA[0][i];
+		osc.prevPixelA = osc.OscBufferA[0][i];
 
 		// check if ready to draw next buffer
 		if ((i % DRAWBUFFERWIDTH) == 0) {

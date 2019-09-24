@@ -104,19 +104,6 @@ inline void MIDIHandler::QueueInc() {
 void MIDIHandler::DrawEvent(const MIDIEvent& event) {
 
 	// Darken colour based on age
-/*
-	uint16_t colour = MIDIColours[event.channel];
-	volatile int32_t r = (colour >> 11) << 1;
-	volatile int32_t g = (colour >> 5) & 0b111111;
-	volatile int32_t b = (colour & 0b11111) << 1;
-	volatile int32_t age = Timer - event.time;
-	age = age >> 6;			// increase shift for slower fade out times
-	r -= std::min(age, r);
-	g -= std::min(age, g);
-	b -= std::min(age, b);;
-	colour = ((r >> 1) << 11) + (g << 5) + (b >> 1);
-*/
-
 	uint16_t colour = ui.DarkenColour(MIDIColours[event.channel], (Timer - event.time) >> 6);
 
 	volatile uint8_t top = MIDIDRAWHEIGHT * MIDIPos;
