@@ -254,22 +254,22 @@ int main(void) {
 						if (pos == std::max((int)osc.circDrawPos[drawBufferNumber] - CIRCLENGTH, 0)) {
 							osc.prevPixelA = pixelA;
 						}
-						//uint16_t greenShade = (63 - (osc.circDrawPos[drawBufferNumber] - pos) / 3) << 5;
-						uint16_t greenShade = ui.DarkenColour(fft.channel == channelA ? LCD_GREEN : fft.channel == channelB ? LCD_BLUE : LCD_ORANGE, (osc.circDrawPos[drawBufferNumber] - pos) / 3);
-						//uint16_t blueShade = (31 - (osc.circDrawPos[drawBufferNumber] - pos) / 6);
-						uint16_t blueShade = ui.DarkenColour(LCD_GREY, (osc.circDrawPos[drawBufferNumber] - pos) / 8);
+
+						uint16_t frontColour = ui.DarkenColour(fft.channel == channelA ? LCD_GREEN : fft.channel == channelB ? LCD_LIGHTBLUE : LCD_ORANGE,
+								(osc.circDrawPos[drawBufferNumber] - pos) / (fft.channel == channelA ? 3 : 4));
+						uint16_t backColour = ui.DarkenColour(LCD_GREY, (osc.circDrawPos[drawBufferNumber] - pos) / 8);
 
 						if (pos < (int)osc.circDrawPos[drawBufferNumber] - CIRCLENGTH + 2) {
-							greenShade = LCD_BLACK;
-							blueShade = LCD_BLACK;
+							frontColour = LCD_BLACK;
+							backColour = LCD_BLACK;
 						}
 
 						// Draw 'circle'
-						lcd.DrawLine(x, pixelA, x, osc.prevPixelA, greenShade);
+						lcd.DrawLine(x, pixelA, x, osc.prevPixelA, frontColour);
 
 						// Draw normal osc
 						uint16_t oscPos = pos * DRAWWIDTH / osc.zeroCrossings[drawBufferNumber];
-						lcd.DrawLine(oscPos, pixelA, oscPos, osc.prevPixelA, blueShade);
+						lcd.DrawLine(oscPos, pixelA, oscPos, osc.prevPixelA, backColour);
 
 						osc.prevPixelA = pixelA;
 					}

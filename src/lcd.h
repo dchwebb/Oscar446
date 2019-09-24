@@ -12,15 +12,19 @@
 #define LCD_GREY		0x528A
 #define LCD_RED			0xF800
 #define LCD_GREEN		0x07E0
-#define LCD_GREEN2		0xB723
+//#define LCD_GREEN2		0xB723
+#define LCD_DULLGREEN	0x02E0
 #define LCD_BLUE		0x001F
 #define LCD_LIGHTBLUE	0x051D
+#define LCD_DULLBLUE	0x0293
 #define LCD_YELLOW		0xFFE0
 #define LCD_ORANGE		0xFBE4
+#define LCD_DULLORANGE	0xA960
 #define LCD_CYAN		0x07FF
 #define LCD_MAGENTA		0xA254
 #define LCD_GRAY		0x7BEF
 #define LCD_BROWN		0xBBCA
+
 
 // LCD command definitions
 #define ILI9341_RESET				0x01

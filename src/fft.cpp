@@ -98,8 +98,8 @@ void FFT::displayWaterfall(volatile float candSin[]) {
 		// work forwards through the buffers so the oldest buffer is drawn first at the front, newer buffers move forward
 		for (uint16_t w = 0; w < WATERFALLBUFFERS; ++w) {
 
-			//uint16_t greenShade = (63 - w * 2) << 5;
-			uint16_t colourShade = ui.DarkenColour(fft.channel == channelA ? LCD_GREEN : fft.channel == channelB ? LCD_BLUE : LCD_ORANGE,  w * 2);
+			//	Darken green has less effect than darkening orange or blue - adjust accordingly
+			uint16_t colourShade = ui.DarkenColour(fft.channel == channelA ? LCD_GREEN : fft.channel == channelB ? LCD_LIGHTBLUE : LCD_ORANGE,  (uint16_t)w * 2 * (fft.channel == channelA ? 1 : 0.8));
 
 			int16_t buff = (waterfallBuffer + w) % WATERFALLBUFFERS;
 			int xOffset = w * 2 + 3;
@@ -260,7 +260,8 @@ void FFT::displayFFT(volatile float candSin[]) {
 	harmonic.fill(0);
 	int16_t badFFT = 0, currHarmonic = -1, smearHarmonic = 0;
 	maxHyp = 0;
-	uint16_t overlayColour = ui.DarkenColour(fft.channel == channelA ? LCD_GREEN : fft.channel == channelB ? LCD_BLUE : LCD_ORANGE,  40);
+	//uint16_t overlayColour = ui.DarkenColour(fft.channel == channelA ? LCD_GREEN : fft.channel == channelB ? LCD_LIGHTBLUE : LCD_ORANGE,  20);
+	uint16_t overlayColour = fft.channel == channelA ? LCD_DULLGREEN : fft.channel == channelB ? LCD_DULLBLUE : LCD_DULLORANGE;
 
 	// Cycle through each column in the display and draw
 	for (uint16_t i = 1; i <= DRAWWIDTH; i++) {
@@ -303,8 +304,9 @@ void FFT::displayFFT(volatile float candSin[]) {
 					dataAvailable[drawBufferNumber] = false;
 					return;
 				}
+
 				DrawBuffer[FFTDrawBufferNumber][buffPos] = harmColour;
-			} else if (traceOverlay && h >= AY.first && h <= AY.second) {
+			} else if (traceOverlay && h >= AY.first && h <= AY.second) {		// Draw oscilloscope trace as overlay
 				DrawBuffer[FFTDrawBufferNumber][buffPos] = overlayColour;
 			} else {
 				DrawBuffer[FFTDrawBufferNumber][buffPos] = LCD_BLACK;
